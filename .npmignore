@@ -1,0 +1,8 @@
+examples/
+tests/
+docs/
+tmp/
+.DS_Store
+yarn.lock
+package-lock.json
+.env
