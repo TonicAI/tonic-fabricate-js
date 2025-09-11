@@ -1,4 +1,4 @@
-import { createWriteStream, existsSync, mkdirSync, renameSync, rmSync } from 'fs'
+import { createWriteStream, existsSync, mkdirSync, renameSync, rmSync, copyFileSync } from 'fs'
 import got from 'got'
 import AdmZip from 'adm-zip'
 import { dirname } from 'path'
@@ -91,7 +91,18 @@ export default async function generate({
       if (unzip && task.content_type === 'application/zip') {
         await unzipFile(tempPath, dest)
       } else {
-        renameSync(tempPath, dest)
+        // Use cross-device safe move that falls back to copy-and-delete if rename fails.
+        try {
+          renameSync(tempPath, dest)
+        } catch (error) {
+          if (error.code === 'EXDEV' || error.code === 'EINVAL') {
+            // Cross-device move failed, fall back to copy-and-delete
+            copyFileSync(tempPath, dest)
+            rmSync(tempPath)
+          } else {
+            throw error
+          }
+        }
       }
     } finally {
       if (existsSync(tempPath)) {
