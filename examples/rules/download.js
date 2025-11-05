@@ -1,4 +1,4 @@
-import { generate } from '../index.js'
+import { generate } from '../../index.js'
 import dotenv from 'dotenv'
 
 dotenv.config()
@@ -6,20 +6,18 @@ dotenv.config()
 console.log('starting...')
 
 await generate({
-  database: 'ecommerce',
+  database: 'XML',
   workspace: 'Default',
+  format: 'xml',
+  dest: './tmp/xml',
+  overwrite: true,
   apiUrl: process.env.FABRICATE_API_URL,
-  connection: {
-    host: 'localhost',
-    port: 5432,
-    database_name: 'ecommerce',
-    username: process.env.FABRICATE_DATABASE_USERNAME,
-    password: process.env.FABRICATE_DATABASE_PASSWORD,
-    tls: false,
-  },
   onProgress: ({ percentComplete, status, phase }) => {
     console.log(`${phase ? `[${phase}] ` : ''}${percentComplete}% complete${status ? `, ${status}` : ''}...`)
   },
+
+  // Uncomment to generate a single table
+  // entity: 'Customers',
 })
 
 console.log('done.')

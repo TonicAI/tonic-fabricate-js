@@ -8,8 +8,9 @@
   "scripts": {
     "publish-to-npm": "npm publish --access public",
     "release": "npm run publish-to-npm",
-    "test:download": "node examples/download.js",
-    "test:push": "node examples/push.js"
+    "test:rules:download": "node examples/rules/download.js",
+    "test:agent:download": "node examples/agent/download.js",
+    "test:rules:push": "node examples/rules/push.js"
   },
   "dependencies": {
     "adm-zip": "^0.5.16",
