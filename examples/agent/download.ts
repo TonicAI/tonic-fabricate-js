@@ -1,4 +1,4 @@
-import { generate } from '../../index.js'
+import { generate } from '../../dist/index.js'
 import dotenv from 'dotenv'
 
 dotenv.config()

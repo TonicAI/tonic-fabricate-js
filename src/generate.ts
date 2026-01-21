@@ -3,9 +3,49 @@ import got from 'got'
 import AdmZip from 'adm-zip'
 import { dirname } from 'path'
 
+export interface GenerateProgressInfo {
+  percentComplete: number
+  status?: string
+  phase?: string
+}
+
+export interface ConnectionConfig {
+  host: string
+  port: number
+  database_name: string
+  username: string
+  password: string
+  tls?: boolean
+}
+
+export interface GenerateOptions {
+  apiKey?: string
+  apiUrl?: string
+  database: string
+  workspace: string
+  entity?: string | null
+  format?: string
+  overrides?: Record<string, unknown>
+  onProgress?: (info: GenerateProgressInfo) => void
+  dest?: string
+  unzip?: boolean
+  overwrite?: boolean
+  connection?: ConnectionConfig | string | null
+}
+
+interface GenerateTask {
+  id: string
+  error?: string
+  completed?: boolean
+  data_url?: string
+  content_type?: string
+  progress?: number
+  context?: string
+  phase?: string
+}
+
 /**
  * Generates data for a given database.
- * @returns {Promise<void>}
  */
 export default async function generate({
   apiKey = process.env.FABRICATE_API_KEY,
@@ -20,7 +60,7 @@ export default async function generate({
   unzip = true,
   overwrite = false,
   connection = null,
-}) {
+}: GenerateOptions): Promise<void> {
   if (!apiKey) {
     throw new Error('apiKey is required')
   }
@@ -45,7 +85,7 @@ export default async function generate({
     throw new Error('dest is required unless connection is provided')
   }
 
-  if (existsSync(dest) && !overwrite) {
+  if (dest && existsSync(dest) && !overwrite) {
     throw new Error('dest already exists')
   }
 
@@ -57,15 +97,16 @@ export default async function generate({
       headers: { Authorization: `Bearer ${apiKey}` },
       json: { format, connection, database, entity, overrides, workspace },
     })
-  } catch (e) {
-    if (e.response?.headers?.['content-type'] === 'application/json') {
-      throw new Error(e.response.body.error)
+  } catch (e: unknown) {
+    const error = e as { response?: { headers?: Record<string, string>; body?: { error?: string } } }
+    if (error.response?.headers?.['content-type'] === 'application/json') {
+      throw new Error(error.response.body?.error)
     } else {
       throw e
     }
   }
 
-  let task = res.body
+  let task = res.body as GenerateTask
 
   if (task.error) {
     throw new Error(task.error)
@@ -80,13 +121,13 @@ export default async function generate({
     process.exit(1)
   }
 
-  if (connection == null) {
+  if (connection == null && dest) {
     // Create temp file paths
     const tempPath = `${dest}.tmp`
 
     try {
       // Download to temp location first
-      await download(data_url, tempPath)
+      await download(data_url!, tempPath)
 
       if (unzip && task.content_type === 'application/zip') {
         await unzipFile(tempPath, dest)
@@ -94,13 +135,14 @@ export default async function generate({
         // Use cross-device safe move that falls back to copy-and-delete if rename fails.
         try {
           renameSync(tempPath, dest)
-        } catch (error) {
+        } catch (err: unknown) {
+          const error = err as { code?: string }
           if (error.code === 'EXDEV' || error.code === 'EINVAL') {
             // Cross-device move failed, fall back to copy-and-delete
             copyFileSync(tempPath, dest)
             rmSync(tempPath)
           } else {
-            throw error
+            throw err
           }
         }
       }
@@ -112,15 +154,18 @@ export default async function generate({
   }
 }
 
-let lastProgress = null,
-  lastContext = null
+let lastProgress: number | null = null
+let lastContext: string | null = null
 
 /**
  * Polls the generate task API until the task is completed.
- * @param {string} id - The ID of the task to poll.
- * @returns {Promise<object>} - The task object.
  */
-async function poll(id, apiUrl, apiKey, onProgress) {
+async function poll(
+  id: string,
+  apiUrl: string,
+  apiKey: string,
+  onProgress?: (info: GenerateProgressInfo) => void
+): Promise<GenerateTask> {
   while (true) {
     const res = await got(`${apiUrl}/generate_tasks/${id}`, {
       responseType: 'json',
@@ -129,7 +174,7 @@ async function poll(id, apiUrl, apiKey, onProgress) {
       },
     })
 
-    const task = res.body
+    const task = res.body as GenerateTask
 
     if (task.completed) {
       updateProgress({ progress: 100 }, onProgress)
@@ -143,23 +188,23 @@ async function poll(id, apiUrl, apiKey, onProgress) {
   }
 }
 
-function updateProgress(task, onProgress) {
+function updateProgress(
+  task: { progress?: number; context?: string; phase?: string },
+  onProgress?: (info: GenerateProgressInfo) => void
+): void {
   if (!onProgress) return
 
   if (task.progress !== lastProgress || task.context !== lastContext) {
-    onProgress?.({ percentComplete: task.progress, status: task.context, phase: task.phase })
-    lastProgress = task.progress
-    lastContext = task.context
+    onProgress({ percentComplete: task.progress ?? 0, status: task.context, phase: task.phase })
+    lastProgress = task.progress ?? null
+    lastContext = task.context ?? null
   }
 }
 
 /**
  * Unzips a file to a target directory.
- * @param {string} path - The path to the zip file.
- * @param {string} target - The target directory.
- * @returns {Promise<void>}
  */
-async function unzipFile(path, target) {
+async function unzipFile(path: string, target: string): Promise<void> {
   return new Promise((resolve, reject) => {
     try {
       const zip = new AdmZip(path)
@@ -173,20 +218,12 @@ async function unzipFile(path, target) {
 
 /**
  * Downloads a file from a URL and saves it to a path.
- * @param {string} url - The URL to download from.
- * @param {string} path - The path to save the file to.
- * @returns {Promise<void>}
  */
-function download(url, path) {
+function download(url: string, path: string): Promise<void> {
   // ensure the directory exists
   const dir = dirname(path)
 
   if (dir !== '.') {
-    // delete the directory if it exists
-    if (existsSync(dir)) {
-      rmSync(dir, { recursive: true })
-    }
-
     mkdirSync(dir, { recursive: true })
   }
 

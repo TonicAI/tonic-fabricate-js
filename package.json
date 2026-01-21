@@ -1,22 +1,34 @@
 {
   "name": "@fabricate-tools/client",
   "version": "1.3.1",
-  "main": "index.js",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "description": "The official Fabricate client",
   "license": "MIT",
   "type": "module",
   "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run build",
     "publish-to-npm": "npm publish --access public",
-    "release": "npm run publish-to-npm",
-    "test:rules:download": "node examples/rules/download.js",
-    "test:agent:download": "node examples/agent/download.js",
-    "test:rules:push": "node examples/rules/push.js"
+    "release": "npm run clean && npm run build && npm run publish-to-npm",
+    "test:rules:download": "npm run build && node examples/rules/download.js",
+    "test:agent:download": "npm run build && tsx examples/agent/download.ts",
+    "test:agent:workflow": "npm run build && tsx examples/agent/workflow.ts",
+    "test:rules:push": "npm run build && node examples/rules/push.js"
   },
   "dependencies": {
     "adm-zip": "^0.5.16",
     "got": "^14.4.5"
   },
   "devDependencies": {
-    "dotenv": "^16.4.7"
-  }
+    "@types/adm-zip": "^0.5.5",
+    "@types/node": "^22.10.0",
+    "dotenv": "^16.4.7",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.0"
+  },
+  "files": [
+    "dist"
+  ]
 }
