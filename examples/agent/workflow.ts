@@ -6,7 +6,7 @@ dotenv.config()
 console.log('Starting workflow...')
 
 const { result, task, downloadFile, downloadAllFiles } = await runWorkflow({
-  database: 'agent_api_test',
+  project: 'agent_api_test',
   workspace: 'API',
   workflow: 'file',
   params: {

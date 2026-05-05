@@ -10,7 +10,10 @@ export interface WorkflowProgressInfo {
 export interface RunWorkflowOptions {
   apiKey?: string
   apiUrl?: string
-  database: string
+  /** The name of the project containing the workflow. */
+  project?: string
+  /** @deprecated Use `project` instead. */
+  database?: string
   workspace: string
   workflow: string
   params?: Record<string, unknown>
@@ -72,6 +75,7 @@ interface StartWorkflowResponse {
 export default async function runWorkflow({
   apiKey = process.env.FABRICATE_API_KEY,
   apiUrl = process.env.FABRICATE_API_URL || 'https://fabricate.tonic.ai/api/v1',
+  project,
   database,
   workspace,
   workflow,
@@ -82,8 +86,9 @@ export default async function runWorkflow({
     throw new Error('apiKey is required')
   }
 
-  if (!database) {
-    throw new Error('database is required')
+  const projectName = project ?? database
+  if (!projectName) {
+    throw new Error('project is required')
   }
 
   if (!workspace) {
@@ -98,7 +103,7 @@ export default async function runWorkflow({
 
   try {
     res = await got.post(
-      `${apiUrl}/workspaces/${encodeURIComponent(workspace)}/databases/${encodeURIComponent(database)}/workflows/${encodeURIComponent(workflow)}`,
+      `${apiUrl}/workspaces/${encodeURIComponent(workspace)}/projects/${encodeURIComponent(projectName)}/workflows/${encodeURIComponent(workflow)}`,
       {
         responseType: 'json',
         headers: { Authorization: `Bearer ${apiKey}` },

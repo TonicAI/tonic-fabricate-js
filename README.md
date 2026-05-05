@@ -87,11 +87,11 @@ To run a workflow and get the result:
 import { runWorkflow } from '@fabricate-tools/client'
 
 const { result, task, downloadFile, downloadAllFiles } = await runWorkflow({
-  // The workspace containing the database
+  // The workspace containing the project
   workspace: 'Default',
 
-  // The name of the database
-  database: 'my_database',
+  // The name of the project
+  project: 'my_project',
 
   // The name of the workflow to run
   workflow: 'my_workflow',
