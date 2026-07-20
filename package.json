@@ -6,9 +6,23 @@
   "description": "The official Fabricate client",
   "license": "MIT",
   "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./eve": {
+      "types": "./dist/eve/index.d.ts",
+      "import": "./dist/eve/index.js",
+      "default": "./dist/eve/index.js"
+    },
+    "./package.json": "./package.json"
+  },
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist",
+    "test": "node --test --import tsx test/*.test.ts",
     "prepublishOnly": "npm run build",
     "publish-to-npm": "npm publish --access public",
     "release": "npm run clean && npm run build && npm run publish-to-npm",
@@ -22,11 +36,49 @@
     "got": "^14.4.5"
   },
   "devDependencies": {
+    "@ai-sdk/otel": "^1.0.31",
+    "@arizeai/openinference-vercel": "^3.1.0",
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/api-logs": "^0.220.0",
+    "@opentelemetry/core": "^2.9.0",
+    "@opentelemetry/instrumentation": "^0.220.0",
+    "@opentelemetry/resources": "^2.9.0",
+    "@opentelemetry/sdk-logs": "^0.220.0",
+    "@opentelemetry/sdk-metrics": "^2.9.0",
+    "@opentelemetry/sdk-trace-base": "^2.9.0",
+    "@opentelemetry/semantic-conventions": "^1.43.0",
     "@types/adm-zip": "^0.5.5",
     "@types/node": "^22.10.0",
+    "@vercel/otel": "^2.1.3",
+    "ai": "^7.0.31",
     "dotenv": "^16.4.7",
+    "eve": "^0.24.6",
     "tsx": "^4.22.4",
     "typescript": "^5.7.0"
+  },
+  "peerDependencies": {
+    "@arizeai/openinference-vercel": "^3.1.0",
+    "@opentelemetry/core": "^2.9.0",
+    "@opentelemetry/sdk-trace-base": "^2.9.0",
+    "@vercel/otel": "^2.1.3",
+    "eve": "^0.24.5"
+  },
+  "peerDependenciesMeta": {
+    "@arizeai/openinference-vercel": {
+      "optional": true
+    },
+    "@opentelemetry/core": {
+      "optional": true
+    },
+    "@opentelemetry/sdk-trace-base": {
+      "optional": true
+    },
+    "@vercel/otel": {
+      "optional": true
+    },
+    "eve": {
+      "optional": true
+    }
   },
   "files": [
     "dist"

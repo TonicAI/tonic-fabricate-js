@@ -122,15 +122,159 @@ if (task.files && task.files.length > 0) {
 }
 ```
 
+### Agent Testing
+
+Run your own agent against a Fabricate **evaluation suite** and report the
+results — including transcripts and Fabricate's LLM-as-judge grading. The
+`AgentTestingClient` is framework-agnostic: you drive your agent however you
+like and convert each run into an OpenInference transcript.
+
+```typescript
+import { AgentTestingClient } from '@fabricate-tools/client'
+
+const client = new AgentTestingClient({
+  // Defaults to FABRICATE_API_KEY / FABRICATE_API_URL.
+  apiKey: process.env.FABRICATE_API_KEY,
+  apiUrl: 'https://fabricate.tonic.ai/api/v1',
+})
+
+// 1. Load the suite and its tasks (Fabricate is the source of truth).
+const suite = await client.findSuite(projectId, { name: 'Agent Test Tasks' })
+if (!suite) throw new Error('Suite not found')
+const tasks = await client.listTasks(suite.id)
+
+// 2. Open a run.
+const run = await client.createRun(projectId, {
+  suite_id: suite.id,
+  model: 'gpt-5-mini',
+  git_branch: process.env.GIT_BRANCH,
+})
+
+// 3. For each task, run your agent, then report a trial for Fabricate to grade.
+for (const task of tasks) {
+  const transcript = await runYourAgent(task.input) // your code -> OpenInference spans
+
+  const reported = await client.reportTrial(run.id, {
+    task_key: task.key,
+    task_input: task.input,
+    transcript: { messages: transcript },
+    grade: true, // let Fabricate's graders score it
+  })
+
+  const graded = await client.waitForGrading(reported.id)
+  console.log(task.key, graded.passed ? 'PASS' : 'FAIL')
+}
+
+// 4. Finalize the run so the dashboard aggregates update.
+await client.updateRun(run.id, { status: 'completed' })
+```
+
+Attach a file (e.g. a CSV the agent produced) for the judge to inspect:
+
+```typescript
+const uploadId = await client.uploadAttachment(workspace, {
+  filename: 'payments.csv',
+  content_type: 'text/csv',
+  data: Buffer.from(csvText),
+})
+
+await client.reportTrial(run.id, {
+  task_key: 'payments-csv',
+  transcript: { messages: transcript },
+  attachment_upload_ids: [uploadId],
+  grade: true,
+})
+```
+
+The client also covers projects, suites/tasks, fixtures, and grader definitions
+(`listProjects`, `findOrCreateSuite`, `upsertTask`, `listFixtures`,
+`findOrCreateGraderDefinition`, and more) for teams that manage those
+definitions programmatically.
+
+### Vercel Eve adapter
+
+Eve projects can use the optional `@fabricate-tools/client/eve` adapter for
+native dynamic evals, OpenInference trace capture, trial reporting, and
+Fabricate grading. Install the adapter's peer packages alongside Eve:
+
+```bash
+npm install @fabricate-tools/client eve @arizeai/openinference-vercel \
+  @opentelemetry/core @opentelemetry/sdk-trace-base @vercel/otel
+```
+
+In `agent/instrumentation.ts`:
+
+```typescript
+import { createFabricateEveInstrumentation } from '@fabricate-tools/client/eve'
+
+export default createFabricateEveInstrumentation({
+  // Optional: add provider-reported llm.cost.* attributes here.
+  enrichAttributes(attributes) {
+    return attributes
+  },
+})
+```
+
+Create evals dynamically from the Fabricate suite:
+
+```typescript
+import { AgentTestingClient } from '@fabricate-tools/client'
+import { createFabricateEveEvals } from '@fabricate-tools/client/eve'
+
+const client = new AgentTestingClient()
+
+export default await createFabricateEveEvals({
+  client,
+  projectId: process.env.FABRICATE_PROJECT_ID!,
+  suite: { id: process.env.FABRICATE_SUITE_ID! },
+  prepareTask: async (task) => {
+    // Materialize task.effective_fixture for this case.
+  },
+})
+```
+
+Add the reporter to `evals/evals.config.ts`:
+
+```typescript
+import { defineEvalConfig } from 'eve/evals'
+import { AgentTestingClient } from '@fabricate-tools/client'
+import { createFabricateEveReporter } from '@fabricate-tools/client/eve'
+
+const client = new AgentTestingClient()
+
+export default defineEvalConfig({
+  reporters: [
+    createFabricateEveReporter({
+      client,
+      projectId: process.env.FABRICATE_PROJECT_ID!,
+      run: {
+        model: process.env.AGENT_MODEL,
+        git_sha: process.env.GIT_SHA,
+      },
+    }),
+  ],
+})
+```
+
+The reporter creates one Fabricate run, reads session traces captured by the
+instrumentation adapter, reports every trial with `grade: true`, waits for all
+Fabricate graders, finalizes the run, and makes `eve eval` fail when execution,
+reporting, or grading fails. Application-specific fixture behavior and model
+pricing remain callbacks in the Eve project.
+
 ## TypeScript Support
 
 This package includes TypeScript definitions. You can import types for better IDE support:
 
 ```typescript
-import { generate, runWorkflow } from '@fabricate-tools/client'
-import type { 
-  GenerateOptions, 
+import { generate, runWorkflow, AgentTestingClient } from '@fabricate-tools/client'
+import type {
+  GenerateOptions,
   RunWorkflowOptions,
-  WorkflowTask 
+  WorkflowTask,
+  AgentTestingSuite,
+  AgentTestingTask,
+  AgentTestingTrial,
+  ReportTrialInput,
 } from '@fabricate-tools/client'
 ```
