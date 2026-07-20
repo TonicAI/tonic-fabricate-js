@@ -18,11 +18,11 @@
     "test:rules:push": "npm run build && node examples/rules/push.js"
   },
   "dependencies": {
-    "adm-zip": "^0.5.16",
+    "adm-zip": "^0.6.0",
     "got": "^14.4.5"
   },
   "devDependencies": {
-    "@types/adm-zip": "^0.5.5",
+    "@types/adm-zip": "^0.5.8",
     "@types/node": "^22.10.0",
     "dotenv": "^16.4.7",
     "tsx": "^4.22.4",
