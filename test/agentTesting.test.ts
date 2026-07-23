@@ -91,7 +91,7 @@ test('listSuites issues an authorized GET to the versioned path', async () => {
   const server = await startServer({
     'GET /api/v1/projects/p1/suites': {
       status: 200,
-      json: [{ id: 's1', project_id: 'p1', name: 'Suite', version_tag: null }],
+      json: [{ id: 's1', project_id: 'p1', suite_id: 'p-s1', name: 'Suite', version: 1 }],
     },
   })
   try {
@@ -121,25 +121,122 @@ test('createRun sends a JSON body and returns the run', async () => {
   }
 })
 
+test('report-only payloads send suite labels and trial-local definitions', async () => {
+  const server = await startServer({
+    'POST /api/v1/projects/p1/runs': { status: 201, json: { id: 'run1', status: 'in_progress' } },
+    'POST /api/v1/runs/run1/trials': { status: 202, json: { id: 'trial1', status: 'completed' } },
+  })
+  try {
+    await server.client.createRun('p1', { suite_name: 'Local suite', model: 'gpt-x' })
+    await server.client.reportTrial('run1', {
+      task: { key: 'users', input: 'Generate users', tags: ['users'] },
+      grader_definitions: [{ name: 'quality', prompt: 'Check the output.', tags: ['users'] }],
+      transcript: { messages: [] },
+      cache_read_tokens: 10,
+      cache_write_5m_tokens: 20,
+      cache_write_1h_tokens: 30,
+      grade: true,
+    })
+
+    assert.deepEqual(JSON.parse(server.requests[0].body), { suite_name: 'Local suite', model: 'gpt-x' })
+    assert.deepEqual(JSON.parse(server.requests[1].body), {
+      task: { key: 'users', input: 'Generate users', tags: ['users'] },
+      grader_definitions: [{ name: 'quality', prompt: 'Check the output.', tags: ['users'] }],
+      transcript: { messages: [] },
+      cache_read_tokens: 10,
+      cache_write_5m_tokens: 20,
+      cache_write_1h_tokens: 30,
+      grade: true,
+    })
+  } finally {
+    await server.close()
+  }
+})
+
 test('findSuite matches by name and version without creating', async () => {
   const server = await startServer({
     'GET /api/v1/projects/p1/suites': {
       status: 200,
       json: [
-        { id: 's1', project_id: 'p1', name: 'Alpha', version_tag: null },
-        { id: 's2', project_id: 'p1', name: 'Alpha', version_tag: 'v2' },
+        { id: 's1', project_id: 'p1', suite_id: 'p1a', name: 'Alpha', version: 1 },
+        { id: 's2', project_id: 'p1', suite_id: 'p1a', name: 'Alpha', version: 2 },
       ],
     },
   })
   try {
+    // No version selector returns the highest-numbered matching version.
     const byName = await server.client.findSuite('p1', { name: 'alpha' })
-    assert.equal(byName?.id, 's1')
-    const byVersion = await server.client.findSuite('p1', { name: 'Alpha', versionTag: 'v2' })
-    assert.equal(byVersion?.id, 's2')
+    assert.equal(byName?.id, 's2')
+    const byVersion = await server.client.findSuite('p1', { name: 'Alpha', version: 1 })
+    assert.equal(byVersion?.id, 's1')
     const missing = await server.client.findSuite('p1', { name: 'Nope' })
     assert.equal(missing, undefined)
     // All three resolved from list calls; no POST was made.
     assert.ok(server.requests.every((r) => r.method === 'GET'))
+  } finally {
+    await server.close()
+  }
+})
+
+test('createSuiteVersion copies a suite version through the version endpoint', async () => {
+  const server = await startServer({
+    'POST /api/v1/suites/s2/versions': {
+      status: 201,
+      json: { id: 's3', suite_id: 'p1a', name: 'Alpha', version: 3 },
+    },
+  })
+  try {
+    const suite = await server.client.createSuiteVersion('s2')
+    assert.equal(suite.id, 's3')
+    assert.equal(suite.version, 3)
+    assert.equal(server.requests[0].method, 'POST')
+    assert.equal(server.requests[0].authorization, 'Bearer test-key')
+    assert.equal(server.requests[0].body, '')
+  } finally {
+    await server.close()
+  }
+})
+
+test('Fixture and Grader Version methods use their version endpoints', async () => {
+  const server = await startServer({
+    'POST /api/v1/fixtures/fv2/versions': {
+      status: 201,
+      json: { id: 'fv3', fixture_id: 'f1', name: 'Store', version: 3, entries: [] },
+    },
+    'POST /api/v1/grader_definitions/gv2/versions': {
+      status: 201,
+      json: { id: 'gv3', grader_id: 'g1', name: 'Quality', version: 3, kind: 'llm_judge', tags: [] },
+    },
+  })
+  try {
+    const fixture = await server.client.createFixtureVersion('fv2')
+    const grader = await server.client.createGraderVersion('gv2')
+    assert.equal(fixture.fixture_id, 'f1')
+    assert.equal(fixture.version, 3)
+    assert.equal(grader.grader_id, 'g1')
+    assert.equal(grader.version, 3)
+    assert.equal(server.requests[0].url, '/api/v1/fixtures/fv2/versions')
+    assert.equal(server.requests[1].url, '/api/v1/grader_definitions/gv2/versions')
+  } finally {
+    await server.close()
+  }
+})
+
+test('createRun sends structured Fixture and Grader Version overrides', async () => {
+  const server = await startServer({
+    'POST /api/v1/projects/p1/runs': { status: 201, json: { id: 'run1', status: 'in_progress' } },
+  })
+  try {
+    await server.client.createRun('p1', {
+      suite_id: 's1',
+      fixture_overrides: [{ fixture_id: 'fixture-1', fixture_version_id: 'fixture-v2' }],
+      grader_overrides: [{ grader_id: 'grader-1', grader_version_id: 'grader-v3' }],
+    })
+    assert.deepEqual(JSON.parse(server.requests[0].body), {
+      suite_id: 's1',
+      fixture_overrides: [{ fixture_id: 'fixture-1', fixture_version_id: 'fixture-v2' }],
+      grader_overrides: [{ grader_id: 'grader-1', grader_version_id: 'grader-v3' }],
+    })
   } finally {
     await server.close()
   }

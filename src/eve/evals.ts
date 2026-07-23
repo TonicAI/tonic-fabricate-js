@@ -12,7 +12,7 @@ import {
 export interface FabricateEveSuiteSelector {
   id?: string
   name?: string
-  versionTag?: string
+  version?: number
 }
 
 export interface LoadFabricateEveSuiteOptions {
@@ -57,8 +57,8 @@ export async function loadFabricateEveSuite(
     const selector = options.suite.id
       ? `id ${options.suite.id}`
       : `name "${options.suite.name ?? ''}"${
-          options.suite.versionTag
-            ? ` version "${options.suite.versionTag}"`
+          options.suite.version != null
+            ? ` version ${options.suite.version}`
             : ''
         }`
     throw new Error(

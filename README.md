@@ -10,6 +10,26 @@ npm install @fabricate-tools/client
 
 ## Usage
 
+### Report-only Agent Testing
+
+Client-owned tasks and grader prompts can be reported without creating
+Fabricate definitions:
+
+```typescript
+const run = await client.createRun(projectId, { suite_name: 'Git-defined evals', model })
+await client.reportTrial(run.id, {
+  task: { key: 'users', input: 'Generate 100 users', tags: ['users'] },
+  grader_definitions: [{ name: 'quality', prompt: 'Inspect the attached data.', tags: ['users'] }],
+  transcript: { messages: spans },
+  attachment_upload_ids: uploadIds,
+  grade: true,
+})
+```
+
+Trial token metrics include `cache_read_tokens`, `cache_write_5m_tokens`, and
+`cache_write_1h_tokens`. Fabricate can derive them from equivalent
+`llm.token_count.prompt_details.*` OpenInference attributes.
+
 ### Generate and Download Data
 
 To generate and download data from Fabricate:
@@ -156,7 +176,6 @@ for (const task of tasks) {
 
   const reported = await client.reportTrial(run.id, {
     task_key: task.key,
-    task_input: task.input,
     transcript: { messages: transcript },
     grade: true, // let Fabricate's graders score it
   })
@@ -168,6 +187,12 @@ for (const task of tasks) {
 // 4. Finalize the run so the dashboard aggregates update.
 await client.updateRun(run.id, { status: 'completed' })
 ```
+
+`findSuite(projectId, { name })` selects the latest version. Pin a CI run to a
+specific definition with `{ name, version }`, or pass the suite **version** UUID
+as `{ id }`. In task and run calls, use the version UUID (`suite.id`), not the
+stable suite UUID (`suite.suite_id`). Use `createSuiteVersion(suite.id)` to
+copy a version's metadata and tasks into the next version.
 
 Attach a file (e.g. a CSV the agent produced) for the judge to inspect:
 
@@ -186,10 +211,28 @@ await client.reportTrial(run.id, {
 })
 ```
 
-The client also covers projects, suites/tasks, fixtures, and grader definitions
-(`listProjects`, `findOrCreateSuite`, `upsertTask`, `listFixtures`,
-`findOrCreateGraderDefinition`, and more) for teams that manage those
-definitions programmatically.
+Fixtures and Graders are independently versioned. `listFixtures` and
+`listGraders` return the latest version by default; use
+`createFixtureVersion(fixtureVersionId)` or
+`createGraderVersion(graderVersionId)` to copy a version into the next mutable
+version. A run resolves the latest version unless you explicitly select one:
+
+```typescript
+await client.createRun(projectId, {
+  suite_id: suite.id,
+  fixture_overrides: [
+    { fixture_id: 'fixture-uuid', fixture_version_id: 'fixture-version-uuid' },
+  ],
+  grader_overrides: [
+    { grader_id: 'grader-uuid', grader_version_id: 'grader-version-uuid' },
+  ],
+})
+```
+
+Runs snapshot their resolved Fixture Version manifests and Grader Version
+rubrics at creation, so later edits do not affect historical results.
+`listGraderDefinitions` and `findOrCreateGraderDefinition` remain deprecated
+aliases for endpoint compatibility.
 
 ### Vercel Eve adapter
 
@@ -232,6 +275,9 @@ export default await createFabricateEveEvals({
   },
 })
 ```
+
+`FABRICATE_SUITE_ID` must be a suite version UUID. To select by name and pin
+an Eve evaluation to a version, use `suite: { name: 'Agent Test Tasks', version: 2 }`.
 
 Add the reporter to `evals/evals.config.ts`:
 

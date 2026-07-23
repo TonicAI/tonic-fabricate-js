@@ -55,8 +55,9 @@ test('createFabricateEveEvals loads current tasks and prepares each case', async
     findSuite: async () => ({
       id: 'suite-1',
       project_id: 'project-1',
+      suite_id: 'parent-1',
       name: 'Suite',
-      version_tag: null,
+      version: 1,
       description: null,
       tags: [],
       task_count: 1,

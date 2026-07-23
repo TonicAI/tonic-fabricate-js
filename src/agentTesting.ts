@@ -8,7 +8,8 @@ import got, { HTTPError } from 'got'
 // ── Shared types ────────────────────────────────────────────────────────────
 
 /** Status of an evaluation run or a reported trial's overall lifecycle. */
-export type AgentTestingRunStatus = 'in_progress' | 'completed' | 'failed'
+export type AgentTestingRunStatus = 'in_progress' | 'completed' | 'failed' | 'timed_out'
+export type AgentTestingClientRunStatus = Exclude<AgentTestingRunStatus, 'timed_out'>
 
 /** Status a reported trial can carry. */
 export type AgentTestingTrialStatus = 'completed' | 'failed' | 'error'
@@ -31,10 +32,14 @@ export interface AgentTestingProject {
 }
 
 export interface AgentTestingSuite {
+  /** The suite version id — the identifier used to add tasks and report runs. */
   id: string
   project_id: string
+  /** The stable suite id, shared across every version. */
+  suite_id: string
   name: string
-  version_tag: string | null
+  /** Integer version number (starts at 1). */
+  version: number
   description: string | null
   tags: string[]
   task_count: number
@@ -44,6 +49,7 @@ export interface AgentTestingSuite {
 
 export interface AgentTestingTask {
   id: string
+  /** Suite version id (the same value as AgentTestingSuite.id), not the stable suite_id. */
   suite_id: string
   key: string
   input: string
@@ -66,15 +72,23 @@ export interface AgentTestingFixtureEntry {
   diagnostic: { code: string; message: string } | null
 }
 
-export interface AgentTestingFixture {
+/** A Fixture Version; `id` is the version UUID and `fixture_id` is the Fixture UUID. */
+export interface AgentTestingFixtureVersion {
   id: string
   project_id: string
+  /** Stable Fixture UUID shared by every version. */
+  fixture_id: string
   name: string
+  /** Integer version number (starts at 1). */
+  version: number
   description: string | null
   entries: AgentTestingFixtureEntry[]
   created_at?: string
   updated_at?: string
 }
+
+/** @deprecated Use AgentTestingFixtureVersion. */
+export type AgentTestingFixture = AgentTestingFixtureVersion
 
 /** Input entry when creating or replacing a fixture manifest. */
 export interface AgentTestingFixtureEntryInput {
@@ -85,10 +99,15 @@ export interface AgentTestingFixtureEntryInput {
 
 export type AgentTestingGraderKind = 'llm_judge' | 'script'
 
-export interface AgentTestingGraderDefinition {
+/** A Grader Version; `id` is the version UUID and `grader_id` is the Grader UUID. */
+export interface AgentTestingGraderVersion {
   id: string
   project_id: string
+  /** Stable Grader UUID shared by every version. */
+  grader_id: string
   name: string
+  /** Integer version number (starts at 1). */
+  version: number
   description: string | null
   kind: AgentTestingGraderKind
   prompt: string | null
@@ -97,13 +116,18 @@ export interface AgentTestingGraderDefinition {
   tags: string[]
 }
 
+/** @deprecated Use AgentTestingGraderVersion. */
+export type AgentTestingGraderDefinition = AgentTestingGraderVersion
+
 export interface AgentTestingRun {
   id: string
   project_id: string
   run_number: number
+  /** Suite version id (the same value as AgentTestingSuite.id), not the stable suite_id. */
   suite_id: string | null
+  suite_linked?: boolean
   suite_name: string | null
-  suite_version_tag: string | null
+  suite_version: number | null
   git_branch: string | null
   git_sha: string | null
   git_repo_url: string | null
@@ -112,8 +136,13 @@ export interface AgentTestingRun {
   status: AgentTestingRunStatus
   started_at: string | null
   completed_at: string | null
+  last_client_update_at: string
   aggregate_metrics: Record<string, unknown> | null
   metadata: Record<string, unknown> | null
+  /** Fixture Version selections resolved and snapshotted when the run began. */
+  fixture_overrides?: AgentTestingFixtureVersionOverride[]
+  /** Grader Version selections resolved and snapshotted when the run began. */
+  grader_overrides?: AgentTestingGraderVersionOverride[]
   created_at: string
 }
 
@@ -157,6 +186,7 @@ export interface AgentTestingTrialSummary {
   id: string
   run_id: string
   task_id: string | null
+  task_linked?: boolean
   task_key: string
   task_name: string | null
   trial_number: number
@@ -166,12 +196,18 @@ export interface AgentTestingTrialSummary {
   latency_ms: number | null
   input_tokens: number | null
   output_tokens: number | null
+  cache_read_tokens: number | null
+  /** @deprecated Use cache_read_tokens. */
   cached_tokens: number | null
+  cache_write_5m_tokens: number | null
+  cache_write_1h_tokens: number | null
 }
 
 export interface AgentTestingTrial extends AgentTestingTrialSummary {
   task_input?: string
   task_expected_output?: string | null
+  task_tags?: string[]
+  grader_definitions_snapshot?: AgentTestingGraderVersion[]
   transcript?: { id: string; messages: OpenInferenceSpan[] } | null
   prompt_context?: unknown
   fixture?: AgentTestingFixture | null
@@ -184,7 +220,6 @@ export interface AgentTestingTrial extends AgentTestingTrialSummary {
 
 export interface FindOrCreateSuiteInput {
   name: string
-  version_tag?: string
   description?: string
   tags?: readonly string[]
   default_fixture_id?: string
@@ -206,6 +241,15 @@ export interface FixtureInput {
   entries?: readonly AgentTestingFixtureEntryInput[]
 }
 
+/**
+ * Select a specific Fixture Version for one Fixture when creating a run.
+ * The run snapshots the resolved manifest at creation time.
+ */
+export interface AgentTestingFixtureVersionOverride {
+  fixture_id: string
+  fixture_version_id: string
+}
+
 export interface FindOrCreateGraderDefinitionInput {
   name: string
   description?: string
@@ -216,35 +260,57 @@ export interface FindOrCreateGraderDefinitionInput {
   tags?: readonly string[]
 }
 
+/**
+ * Select a specific Grader Version for one Grader when creating a run.
+ * The run snapshots the resolved rubric at creation time.
+ */
+export interface AgentTestingGraderVersionOverride {
+  grader_id: string
+  grader_version_id: string
+}
+
 export interface CreateRunInput {
+  /** Suite version id for server-driven mode. Mutually exclusive with suite_name. */
   suite_id?: string
+  /** Client-owned suite label for report-only mode. Mutually exclusive with suite_id. */
   suite_name?: string
-  suite_version_tag?: string
   git_branch?: string
   git_sha?: string
   git_repo_url?: string
   model?: string
   name?: string
-  status?: AgentTestingRunStatus
+  status?: AgentTestingClientRunStatus
   metadata?: Record<string, unknown>
+  fixture_overrides?: readonly AgentTestingFixtureVersionOverride[]
+  grader_overrides?: readonly AgentTestingGraderVersionOverride[]
 }
 
 export interface ReportTrialInput {
-  task_key: string
-  task_input?: string
-  task_expected_output?: string
-  task_tags?: readonly string[]
-  task_input_token_limit?: number
-  task_output_token_limit?: number
+  /** Stable task key for server-driven mode or legacy flat report-only calls. */
+  task_key?: string
+  /** Complete immutable task definition for a report-only trial. */
+  task?: {
+    key: string
+    input: string
+    name?: string
+    expected_output?: string
+    tags?: readonly string[]
+  }
   trial_number?: number
   status?: AgentTestingTrialStatus
   cost?: number
   latency_ms?: number
   input_tokens?: number
   output_tokens?: number
+  cache_read_tokens?: number
+  /** @deprecated Use cache_read_tokens. */
   cached_tokens?: number
+  cache_write_5m_tokens?: number
+  cache_write_1h_tokens?: number
   transcript: { messages: readonly OpenInferenceSpan[] }
   attachment_upload_ids?: readonly string[]
+  /** Client-owned graders used only for this report-only trial. */
+  grader_definitions?: readonly FindOrCreateGraderDefinitionInput[]
   /** Client-computed grader results. Ignored when `grade` is true. */
   graders?: readonly {
     grader_name: string
@@ -394,19 +460,32 @@ export class AgentTestingClient {
   }
 
   /**
-   * Find an existing suite by id, or by name and optional version tag, without
-   * creating one. Returns undefined when no suite matches.
+   * Find an existing suite version by its id, or by suite name and optional
+   * integer version, without creating one. When `version` is omitted the
+   * highest-numbered version of the matching suite is returned. Returns
+   * undefined when no suite matches.
    */
-  async findSuite(projectId: string, selector: { id?: string; name?: string; versionTag?: string }): Promise<AgentTestingSuite | undefined> {
+  async findSuite(projectId: string, selector: { id?: string; name?: string; version?: number }): Promise<AgentTestingSuite | undefined> {
     const suites = await this.listSuites(projectId)
     if (selector.id) {
       return suites.find((suite) => suite.id === selector.id)
     }
     if (selector.name) {
-      const wanted = selector.versionTag ?? undefined
-      return suites.find((suite) => suite.name.toLowerCase() === selector.name!.toLowerCase() && (suite.version_tag ?? undefined) === wanted)
+      const named = suites.filter((suite) => suite.name.toLowerCase() === selector.name!.toLowerCase())
+      if (selector.version != null) {
+        return named.find((suite) => suite.version === selector.version)
+      }
+      return named.sort((a, b) => b.version - a.version)[0]
     }
     return undefined
+  }
+
+  /**
+   * Create the next version of a suite by copying an existing version (its
+   * metadata and all tasks). `suiteId` is the source version's id.
+   */
+  createSuiteVersion(suiteId: string): Promise<AgentTestingSuite> {
+    return this.request('POST', `/suites/${enc(suiteId)}/versions`)
   }
 
   // ── Tasks ─────────────────────────────────────────────────────────────────
@@ -421,35 +500,50 @@ export class AgentTestingClient {
 
   // ── Fixtures ──────────────────────────────────────────────────────────────
 
-  listFixtures(projectId: string): Promise<AgentTestingFixture[]> {
+  /** List every Fixture Version. Resolve a Fixture by name to use its latest version. */
+  listFixtures(projectId: string): Promise<AgentTestingFixtureVersion[]> {
     return this.request('GET', `/projects/${enc(projectId)}/fixtures`)
   }
 
-  findOrCreateFixture(projectId: string, input: FixtureInput): Promise<AgentTestingFixture> {
+  /** Find or create a Fixture, returning its latest Fixture Version. */
+  findOrCreateFixture(projectId: string, input: FixtureInput): Promise<AgentTestingFixtureVersion> {
     return this.request('POST', `/projects/${enc(projectId)}/fixtures`, { json: input })
   }
 
-  getFixture(fixtureId: string): Promise<AgentTestingFixture> {
-    return this.request('GET', `/fixtures/${enc(fixtureId)}`)
+  getFixtureVersion(fixtureVersionId: string): Promise<AgentTestingFixtureVersion> {
+    return this.request('GET', `/fixtures/${enc(fixtureVersionId)}`)
   }
 
-  updateFixture(
-    fixtureId: string,
-    input: { name?: string; description?: string; entries?: readonly AgentTestingFixtureEntryInput[] },
-  ): Promise<AgentTestingFixture> {
-    return this.request('PATCH', `/fixtures/${enc(fixtureId)}`, { json: input })
-  }
-
-  async deleteFixture(fixtureId: string): Promise<void> {
-    await this.request('DELETE', `/fixtures/${enc(fixtureId)}`)
+  /** @deprecated Use getFixtureVersion. */
+  getFixture(fixtureVersionId: string): Promise<AgentTestingFixtureVersion> {
+    return this.getFixtureVersion(fixtureVersionId)
   }
 
   /**
-   * Download the current SQLite contents of a database referenced by a fixture
-   * entry. The same account API key and workspace permissions apply.
+   * Create the next Fixture Version by copying a Fixture Version's manifest.
+   * `fixtureVersionId` is the source version UUID.
    */
-  async downloadFixtureDatabase(fixtureId: string, databaseId: string): Promise<Buffer> {
-    const path = `/fixtures/${enc(fixtureId)}/databases/${enc(databaseId)}`
+  createFixtureVersion(fixtureVersionId: string): Promise<AgentTestingFixtureVersion> {
+    return this.request('POST', `/fixtures/${enc(fixtureVersionId)}/versions`)
+  }
+
+  updateFixture(
+    fixtureVersionId: string,
+    input: { name?: string; description?: string; entries?: readonly AgentTestingFixtureEntryInput[] },
+  ): Promise<AgentTestingFixtureVersion> {
+    return this.request('PATCH', `/fixtures/${enc(fixtureVersionId)}`, { json: input })
+  }
+
+  async deleteFixture(fixtureVersionId: string): Promise<void> {
+    await this.request('DELETE', `/fixtures/${enc(fixtureVersionId)}`)
+  }
+
+  /**
+   * Download the current SQLite contents of a database referenced by a Fixture
+   * Version entry. The same account API key and workspace permissions apply.
+   */
+  async downloadFixtureDatabase(fixtureVersionId: string, databaseId: string): Promise<Buffer> {
+    const path = `/fixtures/${enc(fixtureVersionId)}/databases/${enc(databaseId)}`
     try {
       const response = await got(`${this.apiUrl}${path}`, {
         headers: { Authorization: `Bearer ${this.apiKey}` },
@@ -466,14 +560,34 @@ export class AgentTestingClient {
     }
   }
 
-  // ── Grader definitions ──────────────────────────────────────────────────
+  // ── Graders ─────────────────────────────────────────────────────────────
 
-  listGraderDefinitions(projectId: string): Promise<AgentTestingGraderDefinition[]> {
+  /** List every Grader Version. Resolve a Grader by name to use its latest version. */
+  listGraders(projectId: string): Promise<AgentTestingGraderVersion[]> {
     return this.request('GET', `/projects/${enc(projectId)}/grader_definitions`)
   }
 
-  findOrCreateGraderDefinition(projectId: string, input: FindOrCreateGraderDefinitionInput): Promise<AgentTestingGraderDefinition> {
+  /** @deprecated Use listGraders. */
+  listGraderDefinitions(projectId: string): Promise<AgentTestingGraderVersion[]> {
+    return this.listGraders(projectId)
+  }
+
+  /** Find or create a Grader, returning its latest Grader Version. */
+  findOrCreateGrader(projectId: string, input: FindOrCreateGraderDefinitionInput): Promise<AgentTestingGraderVersion> {
     return this.request('POST', `/projects/${enc(projectId)}/grader_definitions`, { json: input })
+  }
+
+  /** @deprecated Use findOrCreateGrader. */
+  findOrCreateGraderDefinition(projectId: string, input: FindOrCreateGraderDefinitionInput): Promise<AgentTestingGraderVersion> {
+    return this.findOrCreateGrader(projectId, input)
+  }
+
+  /**
+   * Create the next Grader Version by copying a Grader Version's rubric.
+   * `graderVersionId` is the source version UUID.
+   */
+  createGraderVersion(graderVersionId: string): Promise<AgentTestingGraderVersion> {
+    return this.request('POST', `/grader_definitions/${enc(graderVersionId)}/versions`)
   }
 
   // ── Runs ────────────────────────────────────────────────────────────────
@@ -482,7 +596,7 @@ export class AgentTestingClient {
     return this.request('GET', `/projects/${enc(projectId)}/runs`, { searchParams: { branch: options.branch } })
   }
 
-  createRun(projectId: string, input: CreateRunInput = {}): Promise<AgentTestingRun> {
+  createRun(projectId: string, input: CreateRunInput): Promise<AgentTestingRun> {
     return this.request('POST', `/projects/${enc(projectId)}/runs`, { json: input })
   }
 
@@ -490,7 +604,7 @@ export class AgentTestingClient {
     return this.request('GET', `/runs/${enc(runId)}`)
   }
 
-  updateRun(runId: string, input: { status?: AgentTestingRunStatus; metadata?: Record<string, unknown> }): Promise<AgentTestingRun> {
+  updateRun(runId: string, input: { status?: AgentTestingClientRunStatus; metadata?: Record<string, unknown> }): Promise<AgentTestingRun> {
     return this.request('PATCH', `/runs/${enc(runId)}`, { json: input })
   }
 
