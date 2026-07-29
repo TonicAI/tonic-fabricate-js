@@ -1,8 +1,8 @@
 import {
-  AgentTestingClient,
-  type AgentTestingRun,
+  AgentEvalsClient,
+  type AgentEvalsRun,
   type CreateRunInput,
-} from '../agentTesting.js'
+} from '../agentEvals.js'
 import {
   EveSessionTraceStore,
   type EveTraceStoreOptions,
@@ -58,7 +58,7 @@ export interface FabricateEveReporterLogger {
 }
 
 export interface FabricateEveReporterOptions extends EveTraceStoreOptions {
-  client: AgentTestingClient
+  client: AgentEvalsClient
   projectId: string
   /**
    * Workspace name required only when `getAttachments` returns files.
@@ -87,12 +87,12 @@ export interface FabricateEveReporterOptions extends EveTraceStoreOptions {
 function taskMetadata(
   evaluation: FabricateEveEvaluation,
 ): FabricateTaskMetadata {
-  const value = evaluation.metadata?.agentTesting as
+  const value = evaluation.metadata?.agentEvals as
     | Partial<FabricateTaskMetadata>
     | undefined
   if (!value?.suiteId || !value.key) {
     throw new Error(
-      `Eve eval ${evaluation.id} is missing metadata.agentTesting task fields. Create cases with createFabricateEveEvals or provide equivalent metadata.`,
+      `Eve eval ${evaluation.id} is missing metadata.agentEvals task fields. Create cases with createFabricateEveEvals or provide equivalent metadata.`,
     )
   }
   return { suiteId: value.suiteId, key: value.key }
@@ -106,7 +106,7 @@ export class FabricateEveReporter {
   private readonly options: FabricateEveReporterOptions
   private readonly store: EveSessionTraceStore
   private readonly logger: FabricateEveReporterLogger
-  private run?: AgentTestingRun
+  private run?: AgentEvalsRun
   private readonly tasks = new Map<string, FabricateTaskMetadata>()
   private readonly pendingGrades: { taskKey: string; trialId: string }[] = []
   private readonly reportingErrors: string[] = []
@@ -299,7 +299,7 @@ export class FabricateEveReporter {
           (message) => `Fabricate grade failed: ${message}`,
         ),
       ]
-      throw new Error(`Agent testing failures:\n${failures.join('\n')}`)
+      throw new Error(`Agent Evals failures:\n${failures.join('\n')}`)
     }
   }
 

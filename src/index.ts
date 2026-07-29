@@ -1,6 +1,6 @@
 export { default as generate } from './generate.js'
 export { default as runWorkflow, downloadWorkflowFile } from './runWorkflow.js'
-export { AgentTestingClient, AgentTestingError } from './agentTesting.js'
+export { AgentEvalsClient, AgentEvalsError } from './agentEvals.js'
 
 export type { GenerateOptions, GenerateProgressInfo, ConnectionConfig } from './generate.js'
 
@@ -14,37 +14,37 @@ export type {
 } from './runWorkflow.js'
 
 export type {
-  AgentTestingClientOptions,
-  AgentTestingRunStatus,
-  AgentTestingClientRunStatus,
-  AgentTestingTrialStatus,
+  AgentEvalsClientOptions,
+  AgentEvalsRunStatus,
+  AgentEvalsClientRunStatus,
+  AgentEvalsTrialStatus,
   OpenInferenceSpan,
-  AgentTestingProject,
-  AgentTestingSuite,
-  AgentTestingTask,
-  AgentTestingFixture,
-  AgentTestingFixtureVersion,
-  AgentTestingFixtureEntry,
-  AgentTestingFixtureEntryInput,
-  AgentTestingGraderKind,
-  AgentTestingGraderDefinition,
-  AgentTestingGraderVersion,
-  AgentTestingRun,
-  AgentTestingRunWithTrials,
-  AgentTestingAssertion,
-  AgentTestingGrader,
-  AgentTestingGrading,
-  AgentTestingAttachment,
-  AgentTestingTrialSummary,
-  AgentTestingTrial,
-  AgentTestingUpload,
+  AgentEvalsProject,
+  AgentEvalsSuite,
+  AgentEvalsTask,
+  AgentEvalsFixture,
+  AgentEvalsFixtureVersion,
+  AgentEvalsFixtureEntry,
+  AgentEvalsFixtureEntryInput,
+  AgentEvalsGraderKind,
+  AgentEvalsGraderDefinition,
+  AgentEvalsGraderVersion,
+  AgentEvalsRun,
+  AgentEvalsRunWithTrials,
+  AgentEvalsAssertion,
+  AgentEvalsGrader,
+  AgentEvalsGrading,
+  AgentEvalsAttachment,
+  AgentEvalsTrialSummary,
+  AgentEvalsTrial,
+  AgentEvalsUpload,
   FindOrCreateSuiteInput,
   UpsertTaskInput,
   FixtureInput,
-  AgentTestingFixtureVersionOverride,
+  AgentEvalsFixtureVersionOverride,
   FindOrCreateGraderDefinitionInput,
-  AgentTestingGraderVersionOverride,
+  AgentEvalsGraderVersionOverride,
   CreateRunInput,
   ReportTrialInput,
   WaitForGradingOptions,
-} from './agentTesting.js'
+} from './agentEvals.js'

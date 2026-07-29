@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer, type IncomingMessage, type Server } from 'node:http'
 import { AddressInfo } from 'node:net'
-import { AgentTestingClient, AgentTestingError } from '../src/agentTesting.js'
+import { AgentEvalsClient, AgentEvalsError } from '../src/agentEvals.js'
 
 interface RecordedRequest {
   method: string
@@ -22,7 +22,7 @@ interface Route {
 // A tiny stub server: routes keyed by "METHOD path" (path without query).
 // Records each request so tests can assert on URL/auth/body handling.
 async function startServer(routes: Record<string, Route>): Promise<{
-  client: AgentTestingClient
+  client: AgentEvalsClient
   requests: RecordedRequest[]
   calls: Record<string, number>
   close: () => Promise<void>
@@ -67,7 +67,7 @@ async function startServer(routes: Record<string, Route>): Promise<{
 
   await new Promise<void>((resolve) => server.listen(0, resolve))
   const port = (server.address() as AddressInfo).port
-  const client = new AgentTestingClient({ apiKey: 'test-key', apiUrl: `http://127.0.0.1:${port}/api/v1` })
+  const client = new AgentEvalsClient({ apiKey: 'test-key', apiUrl: `http://127.0.0.1:${port}/api/v1` })
 
   return {
     client,
@@ -81,7 +81,7 @@ test('constructor requires an api key', () => {
   const prev = process.env.FABRICATE_API_KEY
   delete process.env.FABRICATE_API_KEY
   try {
-    assert.throws(() => new AgentTestingClient(), /apiKey is required/)
+    assert.throws(() => new AgentEvalsClient(), /apiKey is required/)
   } finally {
     if (prev !== undefined) process.env.FABRICATE_API_KEY = prev
   }
@@ -242,7 +242,7 @@ test('createRun sends structured Fixture and Grader Version overrides', async ()
   }
 })
 
-test('non-2xx responses throw a typed AgentTestingError', async () => {
+test('non-2xx responses throw a typed AgentEvalsError', async () => {
   const server = await startServer({
     'GET /api/v1/trials/t1': { status: 404, raw: JSON.stringify({ error: 'not found' }) },
   })
@@ -250,7 +250,7 @@ test('non-2xx responses throw a typed AgentTestingError', async () => {
     await assert.rejects(
       () => server.client.getTrial('t1'),
       (error: unknown) => {
-        assert.ok(error instanceof AgentTestingError)
+        assert.ok(error instanceof AgentEvalsError)
         assert.equal(error.status, 404)
         assert.equal(error.method, 'GET')
         assert.match(error.body, /not found/)
@@ -340,14 +340,14 @@ test('uploadAttachment mints an upload then PUTs the bytes, returning the id', a
         body: data,
       })
       const url = new URL(req.url ?? '/', 'http://localhost')
-      if (req.method === 'POST' && url.pathname === '/api/v1/workspaces/WS/agent_bench/uploads') {
+      if (req.method === 'POST' && url.pathname === '/api/v1/workspaces/WS/agent_evals/uploads') {
         const port = (srv.address() as AddressInfo).port
         res.statusCode = 201
         res.setHeader('content-type', 'application/json')
         res.end(
           JSON.stringify({
             upload_id: 'up1',
-            upload_url: `http://127.0.0.1:${port}/api/v1/agent_bench/uploads/up1`,
+            upload_url: `http://127.0.0.1:${port}/api/v1/agent_evals/uploads/up1`,
             method: 'PUT',
             max_bytes: 1000,
             expires_at: new Date().toISOString(),
@@ -356,7 +356,7 @@ test('uploadAttachment mints an upload then PUTs the bytes, returning the id', a
         )
         return
       }
-      if (req.method === 'PUT' && url.pathname === '/api/v1/agent_bench/uploads/up1') {
+      if (req.method === 'PUT' && url.pathname === '/api/v1/agent_evals/uploads/up1') {
         putBody = data
         res.statusCode = 200
         res.end('')
@@ -368,7 +368,7 @@ test('uploadAttachment mints an upload then PUTs the bytes, returning the id', a
   })
   await new Promise<void>((resolve) => srv.listen(0, resolve))
   const port = (srv.address() as AddressInfo).port
-  const client = new AgentTestingClient({ apiKey: 'k', apiUrl: `http://127.0.0.1:${port}/api/v1` })
+  const client = new AgentEvalsClient({ apiKey: 'k', apiUrl: `http://127.0.0.1:${port}/api/v1` })
 
   try {
     const uploadId = await client.uploadAttachment('WS', {

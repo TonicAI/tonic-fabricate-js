@@ -1,6 +1,6 @@
 import got, { HTTPError } from 'got'
 
-// Framework-agnostic client for Fabricate's Agent Testing API (v1). It covers
+// Framework-agnostic client for Fabricate's Agent Evals API (v1). It covers
 // suites, tasks, fixtures, grader definitions, runs, trials (including
 // Fabricate-graded trials), and trial attachments. It has no dependency on any
 // agent framework; callers convert their own runs into the transcript shape.
@@ -8,11 +8,11 @@ import got, { HTTPError } from 'got'
 // ── Shared types ────────────────────────────────────────────────────────────
 
 /** Status of an evaluation run or a reported trial's overall lifecycle. */
-export type AgentTestingRunStatus = 'in_progress' | 'completed' | 'failed' | 'timed_out'
-export type AgentTestingClientRunStatus = Exclude<AgentTestingRunStatus, 'timed_out'>
+export type AgentEvalsRunStatus = 'in_progress' | 'completed' | 'failed' | 'timed_out'
+export type AgentEvalsClientRunStatus = Exclude<AgentEvalsRunStatus, 'timed_out'>
 
 /** Status a reported trial can carry. */
-export type AgentTestingTrialStatus = 'completed' | 'failed' | 'error'
+export type AgentEvalsTrialStatus = 'completed' | 'failed' | 'error'
 
 /**
  * One OpenInference span in a trial transcript. `name` is a non-blank span
@@ -24,14 +24,14 @@ export interface OpenInferenceSpan {
   attributes: Record<string, unknown>
 }
 
-export interface AgentTestingProject {
+export interface AgentEvalsProject {
   id: string
   name: string
   description: string | null
   workspace_id: string
 }
 
-export interface AgentTestingSuite {
+export interface AgentEvalsSuite {
   /** The suite version id — the identifier used to add tasks and report runs. */
   id: string
   project_id: string
@@ -44,12 +44,12 @@ export interface AgentTestingSuite {
   tags: string[]
   task_count: number
   default_fixture_id: string | null
-  default_fixture: AgentTestingFixture | null
+  default_fixture: AgentEvalsFixture | null
 }
 
-export interface AgentTestingTask {
+export interface AgentEvalsTask {
   id: string
-  /** Suite version id (the same value as AgentTestingSuite.id), not the stable suite_id. */
+  /** Suite version id (the same value as AgentEvalsSuite.id), not the stable suite_id. */
   suite_id: string
   key: string
   input: string
@@ -58,11 +58,11 @@ export interface AgentTestingTask {
   input_token_limit: number | null
   output_token_limit: number | null
   fixture_id: string | null
-  effective_fixture: AgentTestingFixture | null
+  effective_fixture: AgentEvalsFixture | null
 }
 
 /** A resolved/typed entry inside a fixture manifest. */
-export interface AgentTestingFixtureEntry {
+export interface AgentEvalsFixtureEntry {
   id: string
   key: string
   type: 'database' | 'table' | 'workflow' | 'mock_api'
@@ -73,7 +73,7 @@ export interface AgentTestingFixtureEntry {
 }
 
 /** A Fixture Version; `id` is the version UUID and `fixture_id` is the Fixture UUID. */
-export interface AgentTestingFixtureVersion {
+export interface AgentEvalsFixtureVersion {
   id: string
   project_id: string
   /** Stable Fixture UUID shared by every version. */
@@ -82,25 +82,25 @@ export interface AgentTestingFixtureVersion {
   /** Integer version number (starts at 1). */
   version: number
   description: string | null
-  entries: AgentTestingFixtureEntry[]
+  entries: AgentEvalsFixtureEntry[]
   created_at?: string
   updated_at?: string
 }
 
-/** @deprecated Use AgentTestingFixtureVersion. */
-export type AgentTestingFixture = AgentTestingFixtureVersion
+/** @deprecated Use AgentEvalsFixtureVersion. */
+export type AgentEvalsFixture = AgentEvalsFixtureVersion
 
 /** Input entry when creating or replacing a fixture manifest. */
-export interface AgentTestingFixtureEntryInput {
+export interface AgentEvalsFixtureEntryInput {
   key: string
   type: 'database' | 'table' | 'workflow' | 'mock_api'
   value: Record<string, unknown>
 }
 
-export type AgentTestingGraderKind = 'llm_judge' | 'script'
+export type AgentEvalsGraderKind = 'llm_judge' | 'script'
 
 /** A Grader Version; `id` is the version UUID and `grader_id` is the Grader UUID. */
-export interface AgentTestingGraderVersion {
+export interface AgentEvalsGraderVersion {
   id: string
   project_id: string
   /** Stable Grader UUID shared by every version. */
@@ -109,21 +109,21 @@ export interface AgentTestingGraderVersion {
   /** Integer version number (starts at 1). */
   version: number
   description: string | null
-  kind: AgentTestingGraderKind
+  kind: AgentEvalsGraderKind
   prompt: string | null
   code: string | null
   model: string | null
   tags: string[]
 }
 
-/** @deprecated Use AgentTestingGraderVersion. */
-export type AgentTestingGraderDefinition = AgentTestingGraderVersion
+/** @deprecated Use AgentEvalsGraderVersion. */
+export type AgentEvalsGraderDefinition = AgentEvalsGraderVersion
 
-export interface AgentTestingRun {
+export interface AgentEvalsRun {
   id: string
   project_id: string
   run_number: number
-  /** Suite version id (the same value as AgentTestingSuite.id), not the stable suite_id. */
+  /** Suite version id (the same value as AgentEvalsSuite.id), not the stable suite_id. */
   suite_id: string | null
   suite_linked?: boolean
   suite_name: string | null
@@ -133,24 +133,24 @@ export interface AgentTestingRun {
   git_repo_url: string | null
   model: string | null
   name: string | null
-  status: AgentTestingRunStatus
+  status: AgentEvalsRunStatus
   started_at: string | null
   completed_at: string | null
   last_client_update_at: string
   aggregate_metrics: Record<string, unknown> | null
   metadata: Record<string, unknown> | null
   /** Fixture Version selections resolved and snapshotted when the run began. */
-  fixture_overrides?: AgentTestingFixtureVersionOverride[]
+  fixture_overrides?: AgentEvalsFixtureVersionOverride[]
   /** Grader Version selections resolved and snapshotted when the run began. */
-  grader_overrides?: AgentTestingGraderVersionOverride[]
+  grader_overrides?: AgentEvalsGraderVersionOverride[]
   created_at: string
 }
 
-export interface AgentTestingRunWithTrials extends AgentTestingRun {
-  trials: AgentTestingTrialSummary[]
+export interface AgentEvalsRunWithTrials extends AgentEvalsRun {
+  trials: AgentEvalsTrialSummary[]
 }
 
-export interface AgentTestingAssertion {
+export interface AgentEvalsAssertion {
   id?: string
   assertion_name: string
   passed: boolean | null
@@ -158,14 +158,14 @@ export interface AgentTestingAssertion {
   reasoning: string | null
 }
 
-export interface AgentTestingGrader {
+export interface AgentEvalsGrader {
   id?: string
   grader_name: string
   passed: boolean | null
-  assertions: AgentTestingAssertion[]
+  assertions: AgentEvalsAssertion[]
 }
 
-export interface AgentTestingGrading {
+export interface AgentEvalsGrading {
   id: string
   status: 'pending' | 'in_progress' | 'completed' | 'failed'
   graders_total: number
@@ -175,14 +175,14 @@ export interface AgentTestingGrading {
   completed_at: string | null
 }
 
-export interface AgentTestingAttachment {
+export interface AgentEvalsAttachment {
   id: string
   filename: string
   content_type: string | null
   byte_size: number
 }
 
-export interface AgentTestingTrialSummary {
+export interface AgentEvalsTrialSummary {
   id: string
   run_id: string
   task_id: string | null
@@ -203,17 +203,17 @@ export interface AgentTestingTrialSummary {
   cache_write_1h_tokens: number | null
 }
 
-export interface AgentTestingTrial extends AgentTestingTrialSummary {
+export interface AgentEvalsTrial extends AgentEvalsTrialSummary {
   task_input?: string
   task_expected_output?: string | null
   task_tags?: string[]
-  grader_definitions_snapshot?: AgentTestingGraderVersion[]
+  grader_definitions_snapshot?: AgentEvalsGraderVersion[]
   transcript?: { id: string; messages: OpenInferenceSpan[] } | null
   prompt_context?: unknown
-  fixture?: AgentTestingFixture | null
-  attachments?: AgentTestingAttachment[]
-  graders?: AgentTestingGrader[]
-  grading?: AgentTestingGrading | null
+  fixture?: AgentEvalsFixture | null
+  attachments?: AgentEvalsAttachment[]
+  graders?: AgentEvalsGrader[]
+  grading?: AgentEvalsGrading | null
 }
 
 // ── Request payloads ──────────────────────────────────────────────────────────
@@ -238,14 +238,14 @@ export interface UpsertTaskInput {
 export interface FixtureInput {
   name: string
   description?: string
-  entries?: readonly AgentTestingFixtureEntryInput[]
+  entries?: readonly AgentEvalsFixtureEntryInput[]
 }
 
 /**
  * Select a specific Fixture Version for one Fixture when creating a run.
  * The run snapshots the resolved manifest at creation time.
  */
-export interface AgentTestingFixtureVersionOverride {
+export interface AgentEvalsFixtureVersionOverride {
   fixture_id: string
   fixture_version_id: string
 }
@@ -253,7 +253,7 @@ export interface AgentTestingFixtureVersionOverride {
 export interface FindOrCreateGraderDefinitionInput {
   name: string
   description?: string
-  kind?: AgentTestingGraderKind
+  kind?: AgentEvalsGraderKind
   prompt?: string
   code?: string
   model?: string
@@ -264,7 +264,7 @@ export interface FindOrCreateGraderDefinitionInput {
  * Select a specific Grader Version for one Grader when creating a run.
  * The run snapshots the resolved rubric at creation time.
  */
-export interface AgentTestingGraderVersionOverride {
+export interface AgentEvalsGraderVersionOverride {
   grader_id: string
   grader_version_id: string
 }
@@ -279,10 +279,10 @@ export interface CreateRunInput {
   git_repo_url?: string
   model?: string
   name?: string
-  status?: AgentTestingClientRunStatus
+  status?: AgentEvalsClientRunStatus
   metadata?: Record<string, unknown>
-  fixture_overrides?: readonly AgentTestingFixtureVersionOverride[]
-  grader_overrides?: readonly AgentTestingGraderVersionOverride[]
+  fixture_overrides?: readonly AgentEvalsFixtureVersionOverride[]
+  grader_overrides?: readonly AgentEvalsGraderVersionOverride[]
 }
 
 export interface ReportTrialInput {
@@ -297,7 +297,7 @@ export interface ReportTrialInput {
     tags?: readonly string[]
   }
   trial_number?: number
-  status?: AgentTestingTrialStatus
+  status?: AgentEvalsTrialStatus
   cost?: number
   latency_ms?: number
   input_tokens?: number
@@ -329,7 +329,7 @@ export interface ReportTrialInput {
 }
 
 /** Response from minting a pending trial-attachment upload. */
-export interface AgentTestingUpload {
+export interface AgentEvalsUpload {
   upload_id: string
   upload_url: string
   method: string
@@ -347,7 +347,7 @@ export interface WaitForGradingOptions {
   signal?: AbortSignal
 }
 
-export interface AgentTestingClientOptions {
+export interface AgentEvalsClientOptions {
   /** Fabricate API key. Defaults to the `FABRICATE_API_KEY` environment variable. */
   apiKey?: string
   /**
@@ -358,16 +358,16 @@ export interface AgentTestingClientOptions {
   apiUrl?: string
 }
 
-/** Error thrown for any non-2xx Agent Testing API response. */
-export class AgentTestingError extends Error {
+/** Error thrown for any non-2xx Agent Evals API response. */
+export class AgentEvalsError extends Error {
   constructor(
     readonly status: number,
     readonly method: string,
     readonly path: string,
     readonly body: string,
   ) {
-    super(`Fabricate agent testing request ${method} ${path} failed with ${status}: ${body}`)
-    this.name = 'AgentTestingError'
+    super(`Fabricate agent evals request ${method} ${path} failed with ${status}: ${body}`)
+    this.name = 'AgentEvalsError'
   }
 }
 
@@ -392,15 +392,15 @@ function delay(ms: number, signal?: AbortSignal): Promise<void> {
 }
 
 /**
- * Client for the Fabricate Agent Testing API. Each method maps to a v1
+ * Client for the Fabricate Agent Evals API. Each method maps to a v1
  * endpoint; the higher-level helpers (`findSuite`, `waitForGrading`,
  * `uploadAttachment`) compose those calls for common workflows.
  */
-export class AgentTestingClient {
+export class AgentEvalsClient {
   private readonly apiKey: string
   private readonly apiUrl: string
 
-  constructor(options: AgentTestingClientOptions = {}) {
+  constructor(options: AgentEvalsClientOptions = {}) {
     const apiKey = options.apiKey ?? process.env.FABRICATE_API_KEY
     if (!apiKey) {
       throw new Error('apiKey is required (set it explicitly or via FABRICATE_API_KEY)')
@@ -433,7 +433,7 @@ export class AgentTestingClient {
     } catch (error) {
       if (error instanceof HTTPError) {
         const body = typeof error.response.body === 'string' ? error.response.body : JSON.stringify(error.response.body)
-        throw new AgentTestingError(error.response.statusCode, method, path, body)
+        throw new AgentEvalsError(error.response.statusCode, method, path, body)
       }
       throw error
     }
@@ -441,21 +441,21 @@ export class AgentTestingClient {
 
   // ── Projects ────────────────────────────────────────────────────────────
 
-  listProjects(workspace: string): Promise<AgentTestingProject[]> {
+  listProjects(workspace: string): Promise<AgentEvalsProject[]> {
     return this.request('GET', `/workspaces/${enc(workspace)}/projects`)
   }
 
-  findOrCreateProject(workspace: string, input: { name: string; description?: string }): Promise<AgentTestingProject> {
+  findOrCreateProject(workspace: string, input: { name: string; description?: string }): Promise<AgentEvalsProject> {
     return this.request('POST', `/workspaces/${enc(workspace)}/projects`, { json: input })
   }
 
   // ── Suites ──────────────────────────────────────────────────────────────
 
-  listSuites(projectId: string): Promise<AgentTestingSuite[]> {
+  listSuites(projectId: string): Promise<AgentEvalsSuite[]> {
     return this.request('GET', `/projects/${enc(projectId)}/suites`)
   }
 
-  findOrCreateSuite(projectId: string, input: FindOrCreateSuiteInput): Promise<AgentTestingSuite> {
+  findOrCreateSuite(projectId: string, input: FindOrCreateSuiteInput): Promise<AgentEvalsSuite> {
     return this.request('POST', `/projects/${enc(projectId)}/suites`, { json: input })
   }
 
@@ -465,7 +465,7 @@ export class AgentTestingClient {
    * highest-numbered version of the matching suite is returned. Returns
    * undefined when no suite matches.
    */
-  async findSuite(projectId: string, selector: { id?: string; name?: string; version?: number }): Promise<AgentTestingSuite | undefined> {
+  async findSuite(projectId: string, selector: { id?: string; name?: string; version?: number }): Promise<AgentEvalsSuite | undefined> {
     const suites = await this.listSuites(projectId)
     if (selector.id) {
       return suites.find((suite) => suite.id === selector.id)
@@ -484,38 +484,38 @@ export class AgentTestingClient {
    * Create the next version of a suite by copying an existing version (its
    * metadata and all tasks). `suiteId` is the source version's id.
    */
-  createSuiteVersion(suiteId: string): Promise<AgentTestingSuite> {
+  createSuiteVersion(suiteId: string): Promise<AgentEvalsSuite> {
     return this.request('POST', `/suites/${enc(suiteId)}/versions`)
   }
 
   // ── Tasks ─────────────────────────────────────────────────────────────────
 
-  listTasks(suiteId: string): Promise<AgentTestingTask[]> {
+  listTasks(suiteId: string): Promise<AgentEvalsTask[]> {
     return this.request('GET', `/suites/${enc(suiteId)}/tasks`)
   }
 
-  upsertTask(suiteId: string, input: UpsertTaskInput): Promise<AgentTestingTask> {
+  upsertTask(suiteId: string, input: UpsertTaskInput): Promise<AgentEvalsTask> {
     return this.request('POST', `/suites/${enc(suiteId)}/tasks`, { json: input })
   }
 
   // ── Fixtures ──────────────────────────────────────────────────────────────
 
   /** List every Fixture Version. Resolve a Fixture by name to use its latest version. */
-  listFixtures(projectId: string): Promise<AgentTestingFixtureVersion[]> {
+  listFixtures(projectId: string): Promise<AgentEvalsFixtureVersion[]> {
     return this.request('GET', `/projects/${enc(projectId)}/fixtures`)
   }
 
   /** Find or create a Fixture, returning its latest Fixture Version. */
-  findOrCreateFixture(projectId: string, input: FixtureInput): Promise<AgentTestingFixtureVersion> {
+  findOrCreateFixture(projectId: string, input: FixtureInput): Promise<AgentEvalsFixtureVersion> {
     return this.request('POST', `/projects/${enc(projectId)}/fixtures`, { json: input })
   }
 
-  getFixtureVersion(fixtureVersionId: string): Promise<AgentTestingFixtureVersion> {
+  getFixtureVersion(fixtureVersionId: string): Promise<AgentEvalsFixtureVersion> {
     return this.request('GET', `/fixtures/${enc(fixtureVersionId)}`)
   }
 
   /** @deprecated Use getFixtureVersion. */
-  getFixture(fixtureVersionId: string): Promise<AgentTestingFixtureVersion> {
+  getFixture(fixtureVersionId: string): Promise<AgentEvalsFixtureVersion> {
     return this.getFixtureVersion(fixtureVersionId)
   }
 
@@ -523,14 +523,14 @@ export class AgentTestingClient {
    * Create the next Fixture Version by copying a Fixture Version's manifest.
    * `fixtureVersionId` is the source version UUID.
    */
-  createFixtureVersion(fixtureVersionId: string): Promise<AgentTestingFixtureVersion> {
+  createFixtureVersion(fixtureVersionId: string): Promise<AgentEvalsFixtureVersion> {
     return this.request('POST', `/fixtures/${enc(fixtureVersionId)}/versions`)
   }
 
   updateFixture(
     fixtureVersionId: string,
-    input: { name?: string; description?: string; entries?: readonly AgentTestingFixtureEntryInput[] },
-  ): Promise<AgentTestingFixtureVersion> {
+    input: { name?: string; description?: string; entries?: readonly AgentEvalsFixtureEntryInput[] },
+  ): Promise<AgentEvalsFixtureVersion> {
     return this.request('PATCH', `/fixtures/${enc(fixtureVersionId)}`, { json: input })
   }
 
@@ -554,7 +554,7 @@ export class AgentTestingClient {
     } catch (error) {
       if (error instanceof HTTPError) {
         const body = Buffer.isBuffer(error.response.body) ? error.response.body.toString('utf8') : String(error.response.body)
-        throw new AgentTestingError(error.response.statusCode, 'GET', path, body)
+        throw new AgentEvalsError(error.response.statusCode, 'GET', path, body)
       }
       throw error
     }
@@ -563,22 +563,22 @@ export class AgentTestingClient {
   // ── Graders ─────────────────────────────────────────────────────────────
 
   /** List every Grader Version. Resolve a Grader by name to use its latest version. */
-  listGraders(projectId: string): Promise<AgentTestingGraderVersion[]> {
+  listGraders(projectId: string): Promise<AgentEvalsGraderVersion[]> {
     return this.request('GET', `/projects/${enc(projectId)}/grader_definitions`)
   }
 
   /** @deprecated Use listGraders. */
-  listGraderDefinitions(projectId: string): Promise<AgentTestingGraderVersion[]> {
+  listGraderDefinitions(projectId: string): Promise<AgentEvalsGraderVersion[]> {
     return this.listGraders(projectId)
   }
 
   /** Find or create a Grader, returning its latest Grader Version. */
-  findOrCreateGrader(projectId: string, input: FindOrCreateGraderDefinitionInput): Promise<AgentTestingGraderVersion> {
+  findOrCreateGrader(projectId: string, input: FindOrCreateGraderDefinitionInput): Promise<AgentEvalsGraderVersion> {
     return this.request('POST', `/projects/${enc(projectId)}/grader_definitions`, { json: input })
   }
 
   /** @deprecated Use findOrCreateGrader. */
-  findOrCreateGraderDefinition(projectId: string, input: FindOrCreateGraderDefinitionInput): Promise<AgentTestingGraderVersion> {
+  findOrCreateGraderDefinition(projectId: string, input: FindOrCreateGraderDefinitionInput): Promise<AgentEvalsGraderVersion> {
     return this.findOrCreateGrader(projectId, input)
   }
 
@@ -586,35 +586,35 @@ export class AgentTestingClient {
    * Create the next Grader Version by copying a Grader Version's rubric.
    * `graderVersionId` is the source version UUID.
    */
-  createGraderVersion(graderVersionId: string): Promise<AgentTestingGraderVersion> {
+  createGraderVersion(graderVersionId: string): Promise<AgentEvalsGraderVersion> {
     return this.request('POST', `/grader_definitions/${enc(graderVersionId)}/versions`)
   }
 
   // ── Runs ────────────────────────────────────────────────────────────────
 
-  listRuns(projectId: string, options: { branch?: string } = {}): Promise<AgentTestingRun[]> {
+  listRuns(projectId: string, options: { branch?: string } = {}): Promise<AgentEvalsRun[]> {
     return this.request('GET', `/projects/${enc(projectId)}/runs`, { searchParams: { branch: options.branch } })
   }
 
-  createRun(projectId: string, input: CreateRunInput): Promise<AgentTestingRun> {
+  createRun(projectId: string, input: CreateRunInput): Promise<AgentEvalsRun> {
     return this.request('POST', `/projects/${enc(projectId)}/runs`, { json: input })
   }
 
-  getRun(runId: string): Promise<AgentTestingRunWithTrials> {
+  getRun(runId: string): Promise<AgentEvalsRunWithTrials> {
     return this.request('GET', `/runs/${enc(runId)}`)
   }
 
-  updateRun(runId: string, input: { status?: AgentTestingClientRunStatus; metadata?: Record<string, unknown> }): Promise<AgentTestingRun> {
+  updateRun(runId: string, input: { status?: AgentEvalsClientRunStatus; metadata?: Record<string, unknown> }): Promise<AgentEvalsRun> {
     return this.request('PATCH', `/runs/${enc(runId)}`, { json: input })
   }
 
   // ── Trials ──────────────────────────────────────────────────────────────
 
-  reportTrial(runId: string, input: ReportTrialInput): Promise<AgentTestingTrial> {
+  reportTrial(runId: string, input: ReportTrialInput): Promise<AgentEvalsTrial> {
     return this.request('POST', `/runs/${enc(runId)}/trials`, { json: input })
   }
 
-  getTrial(trialId: string): Promise<AgentTestingTrial> {
+  getTrial(trialId: string): Promise<AgentEvalsTrial> {
     return this.request('GET', `/trials/${enc(trialId)}`)
   }
 
@@ -623,7 +623,7 @@ export class AgentTestingClient {
    * grading settles (`completed`/`failed`) or the timeout elapses. Returns the
    * final trial with its populated `graders`.
    */
-  async waitForGrading(trialId: string, options: WaitForGradingOptions = {}): Promise<AgentTestingTrial> {
+  async waitForGrading(trialId: string, options: WaitForGradingOptions = {}): Promise<AgentEvalsTrial> {
     const intervalMs = options.intervalMs ?? 3000
     const timeoutMs = options.timeoutMs ?? 120000
     const deadline = Date.now() + timeoutMs
@@ -642,9 +642,9 @@ export class AgentTestingClient {
   // ── Attachments ───────────────────────────────────────────────────────────
 
   /** Step 1 of the attachment handshake: mint a pending upload. */
-  createUpload(workspace: string, input: { filename: string; content_type?: string }): Promise<AgentTestingUpload> {
+  createUpload(workspace: string, input: { filename: string; content_type?: string }): Promise<AgentEvalsUpload> {
     // Legacy backend route retains the internal codename; kept private here.
-    return this.request('POST', `/workspaces/${enc(workspace)}/agent_bench/uploads`, { json: input })
+    return this.request('POST', `/workspaces/${enc(workspace)}/agent_evals/uploads`, { json: input })
   }
 
   /** Step 2 of the attachment handshake: PUT the raw file bytes to `uploadUrl`. */
@@ -662,7 +662,7 @@ export class AgentTestingClient {
     } catch (error) {
       if (error instanceof HTTPError) {
         const body = typeof error.response.body === 'string' ? error.response.body : JSON.stringify(error.response.body)
-        throw new AgentTestingError(error.response.statusCode, 'PUT', uploadUrl, body)
+        throw new AgentEvalsError(error.response.statusCode, 'PUT', uploadUrl, body)
       }
       throw error
     }

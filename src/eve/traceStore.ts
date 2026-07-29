@@ -9,7 +9,7 @@ import {
 import { resolve } from 'node:path'
 import { ExportResultCode, type ExportResult } from '@opentelemetry/core'
 import type { ReadableSpan, SpanExporter } from '@opentelemetry/sdk-trace-base'
-import type { OpenInferenceSpan } from '../agentTesting.js'
+import type { OpenInferenceSpan } from '../agentEvals.js'
 
 /**
  * Default on-disk location shared by the Eve agent process and eval reporter.
@@ -17,7 +17,7 @@ import type { OpenInferenceSpan } from '../agentTesting.js'
 export const DEFAULT_EVE_TRACE_DIRECTORY = resolve(
   process.cwd(),
   '.eve',
-  'fabricate-agent-testing-traces',
+  'fabricate-agent-evals-traces',
 )
 
 /**

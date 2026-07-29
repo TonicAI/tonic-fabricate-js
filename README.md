@@ -10,7 +10,7 @@ npm install @fabricate-tools/client
 
 ## Usage
 
-### Report-only Agent Testing
+### Report-only Agent Evals
 
 Client-owned tasks and grader prompts can be reported without creating
 Fabricate definitions:
@@ -142,24 +142,24 @@ if (task.files && task.files.length > 0) {
 }
 ```
 
-### Agent Testing
+### Agent Evals
 
 Run your own agent against a Fabricate **evaluation suite** and report the
 results — including transcripts and Fabricate's LLM-as-judge grading. The
-`AgentTestingClient` is framework-agnostic: you drive your agent however you
+`AgentEvalsClient` is framework-agnostic: you drive your agent however you
 like and convert each run into an OpenInference transcript.
 
 ```typescript
-import { AgentTestingClient } from '@fabricate-tools/client'
+import { AgentEvalsClient } from '@fabricate-tools/client'
 
-const client = new AgentTestingClient({
+const client = new AgentEvalsClient({
   // Defaults to FABRICATE_API_KEY / FABRICATE_API_URL.
   apiKey: process.env.FABRICATE_API_KEY,
   apiUrl: 'https://fabricate.tonic.ai/api/v1',
 })
 
 // 1. Load the suite and its tasks (Fabricate is the source of truth).
-const suite = await client.findSuite(projectId, { name: 'Agent Test Tasks' })
+const suite = await client.findSuite(projectId, { name: 'Agent Eval Tasks' })
 if (!suite) throw new Error('Suite not found')
 const tasks = await client.listTasks(suite.id)
 
@@ -261,10 +261,10 @@ export default createFabricateEveInstrumentation({
 Create evals dynamically from the Fabricate suite:
 
 ```typescript
-import { AgentTestingClient } from '@fabricate-tools/client'
+import { AgentEvalsClient } from '@fabricate-tools/client'
 import { createFabricateEveEvals } from '@fabricate-tools/client/eve'
 
-const client = new AgentTestingClient()
+const client = new AgentEvalsClient()
 
 export default await createFabricateEveEvals({
   client,
@@ -277,16 +277,16 @@ export default await createFabricateEveEvals({
 ```
 
 `FABRICATE_SUITE_ID` must be a suite version UUID. To select by name and pin
-an Eve evaluation to a version, use `suite: { name: 'Agent Test Tasks', version: 2 }`.
+an Eve evaluation to a version, use `suite: { name: 'Agent Eval Tasks', version: 2 }`.
 
 Add the reporter to `evals/evals.config.ts`:
 
 ```typescript
 import { defineEvalConfig } from 'eve/evals'
-import { AgentTestingClient } from '@fabricate-tools/client'
+import { AgentEvalsClient } from '@fabricate-tools/client'
 import { createFabricateEveReporter } from '@fabricate-tools/client/eve'
 
-const client = new AgentTestingClient()
+const client = new AgentEvalsClient()
 
 export default defineEvalConfig({
   reporters: [
@@ -313,14 +313,14 @@ pricing remain callbacks in the Eve project.
 This package includes TypeScript definitions. You can import types for better IDE support:
 
 ```typescript
-import { generate, runWorkflow, AgentTestingClient } from '@fabricate-tools/client'
+import { generate, runWorkflow, AgentEvalsClient } from '@fabricate-tools/client'
 import type {
   GenerateOptions,
   RunWorkflowOptions,
   WorkflowTask,
-  AgentTestingSuite,
-  AgentTestingTask,
-  AgentTestingTrial,
+  AgentEvalsSuite,
+  AgentEvalsTask,
+  AgentEvalsTrial,
   ReportTrialInput,
 } from '@fabricate-tools/client'
 ```

@@ -4,10 +4,10 @@ import {
   type EveEvalDefinition,
 } from 'eve/evals'
 import {
-  AgentTestingClient,
-  type AgentTestingSuite,
-  type AgentTestingTask,
-} from '../agentTesting.js'
+  AgentEvalsClient,
+  type AgentEvalsSuite,
+  type AgentEvalsTask,
+} from '../agentEvals.js'
 
 export interface FabricateEveSuiteSelector {
   id?: string
@@ -16,15 +16,15 @@ export interface FabricateEveSuiteSelector {
 }
 
 export interface LoadFabricateEveSuiteOptions {
-  client: AgentTestingClient
+  client: AgentEvalsClient
   projectId: string
   suite: FabricateEveSuiteSelector
 }
 
 export interface FabricateEveSuite {
-  client: AgentTestingClient
-  suite: AgentTestingSuite
-  tasks: AgentTestingTask[]
+  client: AgentEvalsClient
+  suite: AgentEvalsSuite
+  tasks: AgentEvalsTask[]
 }
 
 export interface CreateFabricateEveEvalsOptions
@@ -33,7 +33,7 @@ export interface CreateFabricateEveEvalsOptions
    * Materialize the task's effective fixture before the agent turn starts.
    */
   prepareTask?: (
-    task: AgentTestingTask,
+    task: AgentEvalsTask,
     context: FabricateEveSuite,
   ) => void | Promise<void>
   /**
@@ -41,9 +41,9 @@ export interface CreateFabricateEveEvalsOptions
    */
   test?: (
     context: EveEvalContext,
-    task: AgentTestingTask,
+    task: AgentEvalsTask,
   ) => void | Promise<void>
-  metadata?: (task: AgentTestingTask) => Record<string, unknown>
+  metadata?: (task: AgentEvalsTask) => Record<string, unknown>
 }
 
 /**
@@ -90,7 +90,7 @@ export async function createFabricateEveEvals(
       tags: task.tags,
       metadata: {
         ...options.metadata?.(task),
-        agentTesting: {
+        agentEvals: {
           suiteId: loaded.suite.id,
           key: task.key,
         },

@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import type { AgentTestingClient, AgentTestingTask } from '../src/index.js'
+import type { AgentEvalsClient, AgentEvalsTask } from '../src/index.js'
 import {
   createFabricateEveEvals,
   FabricateEveReporter,
@@ -39,7 +39,7 @@ test('EveSessionTraceStore reads and clears spans by session', () => {
 })
 
 test('createFabricateEveEvals loads current tasks and prepares each case', async () => {
-  const task: AgentTestingTask = {
+  const task: AgentEvalsTask = {
     id: 'task-1',
     suite_id: 'suite-1',
     key: 'lookup-order',
@@ -65,7 +65,7 @@ test('createFabricateEveEvals loads current tasks and prepares each case', async
       default_fixture: null,
     }),
     listTasks: async () => [task],
-  } as unknown as AgentTestingClient
+  } as unknown as AgentEvalsClient
   const events: string[] = []
 
   const evaluations = await createFabricateEveEvals({
@@ -82,7 +82,7 @@ test('createFabricateEveEvals loads current tasks and prepares each case', async
 
   assert.equal(evaluations.length, 1)
   assert.deepEqual(evaluations[0].metadata, {
-    agentTesting: { suiteId: 'suite-1', key: 'lookup-order' },
+    agentEvals: { suiteId: 'suite-1', key: 'lookup-order' },
   })
   await evaluations[0].test({} as never)
   assert.deepEqual(events, ['prepare', 'test:lookup-order'])
@@ -118,7 +118,7 @@ test('FabricateEveReporter reports stored spans and finalizes the run', async ()
         calls.push({ updateRun: input })
         return { id: 'run-1' }
       },
-    } as unknown as AgentTestingClient
+    } as unknown as AgentEvalsClient
     const reporter = new FabricateEveReporter({
       client,
       projectId: 'project-1',
@@ -131,7 +131,7 @@ test('FabricateEveReporter reports stored spans and finalizes the run', async ()
         {
           id: 'eval-1',
           metadata: {
-            agentTesting: { suiteId: 'suite-1', key: 'lookup-order' },
+            agentEvals: { suiteId: 'suite-1', key: 'lookup-order' },
           },
         },
       ],
