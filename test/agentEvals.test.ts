@@ -197,34 +197,44 @@ test('createSuiteVersion copies a suite version through the version endpoint', a
   }
 })
 
-test('Grader Version methods use their version endpoints', async () => {
+test('Fixture and Grader Version methods use their version endpoints', async () => {
   const server = await startServer({
+    'POST /api/v1/fixtures/fv2/versions': {
+      status: 201,
+      json: { id: 'fv3', fixture_id: 'f1', name: 'Store', version: 3, entries: [] },
+    },
     'POST /api/v1/grader_definitions/gv2/versions': {
       status: 201,
       json: { id: 'gv3', grader_id: 'g1', name: 'Quality', version: 3, kind: 'llm_judge', tags: [] },
     },
   })
   try {
+    const fixture = await server.client.createFixtureVersion('fv2')
     const grader = await server.client.createGraderVersion('gv2')
+    assert.equal(fixture.fixture_id, 'f1')
+    assert.equal(fixture.version, 3)
     assert.equal(grader.grader_id, 'g1')
     assert.equal(grader.version, 3)
-    assert.equal(server.requests[0].url, '/api/v1/grader_definitions/gv2/versions')
+    assert.equal(server.requests[0].url, '/api/v1/fixtures/fv2/versions')
+    assert.equal(server.requests[1].url, '/api/v1/grader_definitions/gv2/versions')
   } finally {
     await server.close()
   }
 })
 
-test('createRun sends structured Grader Version overrides', async () => {
+test('createRun sends structured Fixture and Grader Version overrides', async () => {
   const server = await startServer({
     'POST /api/v1/projects/p1/runs': { status: 201, json: { id: 'run1', status: 'in_progress' } },
   })
   try {
     await server.client.createRun('p1', {
       suite_id: 's1',
+      fixture_overrides: [{ fixture_id: 'fixture-1', fixture_version_id: 'fixture-v2' }],
       grader_overrides: [{ grader_id: 'grader-1', grader_version_id: 'grader-v3' }],
     })
     assert.deepEqual(JSON.parse(server.requests[0].body), {
       suite_id: 's1',
+      fixture_overrides: [{ fixture_id: 'fixture-1', fixture_version_id: 'fixture-v2' }],
       grader_overrides: [{ grader_id: 'grader-1', grader_version_id: 'grader-v3' }],
     })
   } finally {
@@ -259,6 +269,19 @@ test('listRuns forwards the branch filter as a query param', async () => {
   try {
     await server.client.listRuns('p1', { branch: 'main' })
     assert.match(server.requests[0].url, /[?&]branch=main/)
+  } finally {
+    await server.close()
+  }
+})
+
+test('downloadFixtureDatabase returns authorized SQLite bytes', async () => {
+  const server = await startServer({
+    'GET /api/v1/fixtures/f1/databases/db1': { status: 200, raw: 'sqlite-bytes' },
+  })
+  try {
+    const data = await server.client.downloadFixtureDatabase('f1', 'db1')
+    assert.equal(data.toString('utf8'), 'sqlite-bytes')
+    assert.equal(server.requests[0].authorization, 'Bearer test-key')
   } finally {
     await server.close()
   }

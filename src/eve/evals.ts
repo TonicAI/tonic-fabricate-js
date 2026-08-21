@@ -30,7 +30,7 @@ export interface FabricateEveSuite {
 export interface CreateFabricateEveEvalsOptions
   extends LoadFabricateEveSuiteOptions {
   /**
-   * Optional per-task setup before the agent turn starts.
+   * Materialize the task's effective fixture before the agent turn starts.
    */
   prepareTask?: (
     task: AgentEvalsTask,

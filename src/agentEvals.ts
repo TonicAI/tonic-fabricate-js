@@ -1,9 +1,9 @@
 import got, { HTTPError } from 'got'
 
 // Framework-agnostic client for Fabricate's Agent Evals API (v1). It covers
-// suites, tasks, grader definitions, runs, trials (including Fabricate-graded
-// trials), and trial attachments. It has no dependency on any agent
-// framework; callers convert their own runs into the transcript shape.
+// suites, tasks, fixtures, grader definitions, runs, trials (including
+// Fabricate-graded trials), and trial attachments. It has no dependency on any
+// agent framework; callers convert their own runs into the transcript shape.
 
 // ── Shared types ────────────────────────────────────────────────────────────
 
@@ -43,6 +43,8 @@ export interface AgentEvalsSuite {
   description: string | null
   tags: string[]
   task_count: number
+  default_fixture_id: string | null
+  default_fixture: AgentEvalsFixture | null
 }
 
 export interface AgentEvalsTask {
@@ -55,6 +57,44 @@ export interface AgentEvalsTask {
   tags: string[]
   input_token_limit: number | null
   output_token_limit: number | null
+  fixture_id: string | null
+  effective_fixture: AgentEvalsFixture | null
+}
+
+/** A resolved/typed entry inside a fixture manifest. */
+export interface AgentEvalsFixtureEntry {
+  id: string
+  key: string
+  type: 'database' | 'table' | 'workflow' | 'mock_api'
+  value: Record<string, unknown>
+  position: number
+  resource: Record<string, unknown> | null
+  diagnostic: { code: string; message: string } | null
+}
+
+/** A Fixture Version; `id` is the version UUID and `fixture_id` is the Fixture UUID. */
+export interface AgentEvalsFixtureVersion {
+  id: string
+  project_id: string
+  /** Stable Fixture UUID shared by every version. */
+  fixture_id: string
+  name: string
+  /** Integer version number (starts at 1). */
+  version: number
+  description: string | null
+  entries: AgentEvalsFixtureEntry[]
+  created_at?: string
+  updated_at?: string
+}
+
+/** @deprecated Use AgentEvalsFixtureVersion. */
+export type AgentEvalsFixture = AgentEvalsFixtureVersion
+
+/** Input entry when creating or replacing a fixture manifest. */
+export interface AgentEvalsFixtureEntryInput {
+  key: string
+  type: 'database' | 'table' | 'workflow' | 'mock_api'
+  value: Record<string, unknown>
 }
 
 export type AgentEvalsGraderKind = 'llm_judge' | 'script'
@@ -99,6 +139,8 @@ export interface AgentEvalsRun {
   last_client_update_at: string
   aggregate_metrics: Record<string, unknown> | null
   metadata: Record<string, unknown> | null
+  /** Fixture Version selections resolved and snapshotted when the run began. */
+  fixture_overrides?: AgentEvalsFixtureVersionOverride[]
   /** Grader Version selections resolved and snapshotted when the run began. */
   grader_overrides?: AgentEvalsGraderVersionOverride[]
   created_at: string
@@ -168,6 +210,7 @@ export interface AgentEvalsTrial extends AgentEvalsTrialSummary {
   grader_definitions_snapshot?: AgentEvalsGraderVersion[]
   transcript?: { id: string; messages: OpenInferenceSpan[] } | null
   prompt_context?: unknown
+  fixture?: AgentEvalsFixture | null
   attachments?: AgentEvalsAttachment[]
   graders?: AgentEvalsGrader[]
   grading?: AgentEvalsGrading | null
@@ -179,6 +222,7 @@ export interface FindOrCreateSuiteInput {
   name: string
   description?: string
   tags?: readonly string[]
+  default_fixture_id?: string
 }
 
 export interface UpsertTaskInput {
@@ -186,8 +230,24 @@ export interface UpsertTaskInput {
   input: string
   expected_output?: string
   tags?: readonly string[]
+  fixture_id?: string
   input_token_limit?: number
   output_token_limit?: number
+}
+
+export interface FixtureInput {
+  name: string
+  description?: string
+  entries?: readonly AgentEvalsFixtureEntryInput[]
+}
+
+/**
+ * Select a specific Fixture Version for one Fixture when creating a run.
+ * The run snapshots the resolved manifest at creation time.
+ */
+export interface AgentEvalsFixtureVersionOverride {
+  fixture_id: string
+  fixture_version_id: string
 }
 
 export interface FindOrCreateGraderDefinitionInput {
@@ -221,6 +281,7 @@ export interface CreateRunInput {
   name?: string
   status?: AgentEvalsClientRunStatus
   metadata?: Record<string, unknown>
+  fixture_overrides?: readonly AgentEvalsFixtureVersionOverride[]
   grader_overrides?: readonly AgentEvalsGraderVersionOverride[]
 }
 
@@ -435,6 +496,68 @@ export class AgentEvalsClient {
 
   upsertTask(suiteId: string, input: UpsertTaskInput): Promise<AgentEvalsTask> {
     return this.request('POST', `/suites/${enc(suiteId)}/tasks`, { json: input })
+  }
+
+  // ── Fixtures ──────────────────────────────────────────────────────────────
+
+  /** List every Fixture Version. Resolve a Fixture by name to use its latest version. */
+  listFixtures(projectId: string): Promise<AgentEvalsFixtureVersion[]> {
+    return this.request('GET', `/projects/${enc(projectId)}/fixtures`)
+  }
+
+  /** Find or create a Fixture, returning its latest Fixture Version. */
+  findOrCreateFixture(projectId: string, input: FixtureInput): Promise<AgentEvalsFixtureVersion> {
+    return this.request('POST', `/projects/${enc(projectId)}/fixtures`, { json: input })
+  }
+
+  getFixtureVersion(fixtureVersionId: string): Promise<AgentEvalsFixtureVersion> {
+    return this.request('GET', `/fixtures/${enc(fixtureVersionId)}`)
+  }
+
+  /** @deprecated Use getFixtureVersion. */
+  getFixture(fixtureVersionId: string): Promise<AgentEvalsFixtureVersion> {
+    return this.getFixtureVersion(fixtureVersionId)
+  }
+
+  /**
+   * Create the next Fixture Version by copying a Fixture Version's manifest.
+   * `fixtureVersionId` is the source version UUID.
+   */
+  createFixtureVersion(fixtureVersionId: string): Promise<AgentEvalsFixtureVersion> {
+    return this.request('POST', `/fixtures/${enc(fixtureVersionId)}/versions`)
+  }
+
+  updateFixture(
+    fixtureVersionId: string,
+    input: { name?: string; description?: string; entries?: readonly AgentEvalsFixtureEntryInput[] },
+  ): Promise<AgentEvalsFixtureVersion> {
+    return this.request('PATCH', `/fixtures/${enc(fixtureVersionId)}`, { json: input })
+  }
+
+  async deleteFixture(fixtureVersionId: string): Promise<void> {
+    await this.request('DELETE', `/fixtures/${enc(fixtureVersionId)}`)
+  }
+
+  /**
+   * Download the current SQLite contents of a database referenced by a Fixture
+   * Version entry. The same account API key and workspace permissions apply.
+   */
+  async downloadFixtureDatabase(fixtureVersionId: string, databaseId: string): Promise<Buffer> {
+    const path = `/fixtures/${enc(fixtureVersionId)}/databases/${enc(databaseId)}`
+    try {
+      const response = await got(`${this.apiUrl}${path}`, {
+        headers: { Authorization: `Bearer ${this.apiKey}` },
+        responseType: 'buffer',
+        throwHttpErrors: true,
+      })
+      return response.body
+    } catch (error) {
+      if (error instanceof HTTPError) {
+        const body = Buffer.isBuffer(error.response.body) ? error.response.body.toString('utf8') : String(error.response.body)
+        throw new AgentEvalsError(error.response.statusCode, 'GET', path, body)
+      }
+      throw error
+    }
   }
 
   // ── Graders ─────────────────────────────────────────────────────────────

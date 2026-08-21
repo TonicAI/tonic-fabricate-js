@@ -48,6 +48,8 @@ test('createFabricateEveEvals loads current tasks and prepares each case', async
     tags: ['orders'],
     input_token_limit: null,
     output_token_limit: null,
+    fixture_id: null,
+    effective_fixture: null,
   }
   const client = {
     findSuite: async () => ({
@@ -59,6 +61,8 @@ test('createFabricateEveEvals loads current tasks and prepares each case', async
       description: null,
       tags: [],
       task_count: 1,
+      default_fixture_id: null,
+      default_fixture: null,
     }),
     listTasks: async () => [task],
   } as unknown as AgentEvalsClient
