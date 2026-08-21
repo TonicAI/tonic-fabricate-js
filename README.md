@@ -211,26 +211,22 @@ await client.reportTrial(run.id, {
 })
 ```
 
-Fixtures and Graders are independently versioned. `listFixtures` and
-`listGraders` return the latest version by default; use
-`createFixtureVersion(fixtureVersionId)` or
-`createGraderVersion(graderVersionId)` to copy a version into the next mutable
-version. A run resolves the latest version unless you explicitly select one:
+Graders are independently versioned. `listGraders` returns the latest version
+by default; use `createGraderVersion(graderVersionId)` to copy a version into
+the next mutable version. A run resolves the latest version unless you
+explicitly select one:
 
 ```typescript
 await client.createRun(projectId, {
   suite_id: suite.id,
-  fixture_overrides: [
-    { fixture_id: 'fixture-uuid', fixture_version_id: 'fixture-version-uuid' },
-  ],
   grader_overrides: [
     { grader_id: 'grader-uuid', grader_version_id: 'grader-version-uuid' },
   ],
 })
 ```
 
-Runs snapshot their resolved Fixture Version manifests and Grader Version
-rubrics at creation, so later edits do not affect historical results.
+Runs snapshot their resolved Grader Version rubrics at creation, so later edits
+do not affect historical results.
 `listGraderDefinitions` and `findOrCreateGraderDefinition` remain deprecated
 aliases for endpoint compatibility.
 
@@ -271,7 +267,7 @@ export default await createFabricateEveEvals({
   projectId: process.env.FABRICATE_PROJECT_ID!,
   suite: { id: process.env.FABRICATE_SUITE_ID! },
   prepareTask: async (task) => {
-    // Materialize task.effective_fixture for this case.
+    // Optional per-task setup for this case.
   },
 })
 ```
@@ -305,7 +301,7 @@ export default defineEvalConfig({
 The reporter creates one Fabricate run, reads session traces captured by the
 instrumentation adapter, reports every trial with `grade: true`, waits for all
 Fabricate graders, finalizes the run, and makes `eve eval` fail when execution,
-reporting, or grading fails. Application-specific fixture behavior and model
+reporting, or grading fails. Application-specific setup and model
 pricing remain callbacks in the Eve project.
 
 ## TypeScript Support
