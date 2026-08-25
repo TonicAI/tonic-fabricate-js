@@ -381,6 +381,7 @@ test('uploadAttachment mints an upload then PUTs the bytes, returning the id', a
     assert.equal(requests[0].method, 'POST')
     assert.equal(requests[1].method, 'PUT')
     assert.equal(requests[1].authorization, 'Bearer k')
+    assert.equal(requests[1].contentType, 'text/csv')
   } finally {
     await new Promise<void>((resolve) => srv.close(() => resolve()))
   }
