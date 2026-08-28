@@ -900,3 +900,8 @@ unstorage@2.0.0-alpha.7:
   version "2.0.0-alpha.7"
   resolved "https://registry.yarnpkg.com/unstorage/-/unstorage-2.0.0-alpha.7.tgz#803ea90176683bf2175bb01065cb07df6d65280a"
   integrity sha512-ELPztchk2zgFJnakyodVY3vJWGW9jy//keJ32IOJVGUMyaPydwcA1FtVvWqT0TNRch9H+cMNEGllfVFfScImog==
+
+zod@^4.1.8:
+  version "4.5.1"
+  resolved "https://registry.yarnpkg.com/zod/-/zod-4.5.1.tgz#3837a11f4685e27b871aee73b340df82cf7939ec"
+  integrity sha512-P3GqeAEOEDqKvafVGLezbg+39YW/ze4xrD4qdS0adOY8eoI3zfjv1PQM4UwQzgT8mZKXEbqtVt8K+ZKGqkMFKg==
