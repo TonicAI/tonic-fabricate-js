@@ -1,0 +1,40 @@
+name: Test
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The two Node LTS lines still under support.
+        node-version:
+          - "22"
+          - "24"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      # Compiling is itself a check: the package ships generated type
+      # declarations, so a type error is a publish-blocking failure.
+      - name: Build
+        run: yarn build
+
+      - name: Run tests
+        run: yarn test
