@@ -15,15 +15,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The two Node LTS lines still under support.
+        # Node 24 only: the `eve` dev dependency declares `engines.node >= 24`,
+        # so older versions cannot install the dev toolchain. This constrains
+        # development, not consumers — the published package itself has no such
+        # requirement unless you use the optional Eve adapter.
         node-version:
-          - "22"
           - "24"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ matrix.node-version }}
           cache: yarn
