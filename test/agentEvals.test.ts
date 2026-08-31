@@ -178,6 +178,41 @@ test('findSuite matches by name and version without creating', async () => {
   }
 })
 
+test('suite, task, run, and trial CRUD methods hit the new endpoints', async () => {
+  const server = await startServer({
+    'GET /api/v1/suites/s1': { status: 200, json: { id: 's1', name: 'Alpha', version: 1 } },
+    'PATCH /api/v1/suites/s1': { status: 200, json: { id: 's1', name: 'Beta', version: 1 } },
+    'DELETE /api/v1/suites/s1': { status: 204 },
+    'DELETE /api/v1/suite_parents/p1': { status: 204 },
+    'GET /api/v1/suites/s1/tasks/t1': { status: 200, json: { id: 't1', key: 'k' } },
+    'PATCH /api/v1/suites/s1/tasks/t1': { status: 200, json: { id: 't1', key: 'k', input: 'updated' } },
+    'DELETE /api/v1/suites/s1/tasks/t1': { status: 204 },
+    'GET /api/v1/grader_definitions/g1': { status: 200, json: { id: 'g1', name: 'quality' } },
+    'DELETE /api/v1/grader_parents/gp1': { status: 204 },
+    'DELETE /api/v1/runs/r1': { status: 204 },
+    'PATCH /api/v1/trials/tr1': { status: 200, json: { id: 'tr1', status: 'failed' } },
+    'DELETE /api/v1/trials/tr1': { status: 204 },
+  })
+  try {
+    assert.equal((await server.client.getSuite('s1')).id, 's1')
+    assert.equal((await server.client.updateSuite('s1', { name: 'Beta' })).name, 'Beta')
+    await server.client.deleteSuite('s1')
+    await server.client.deleteSuiteParent('p1')
+    assert.equal((await server.client.getTask('s1', 't1')).id, 't1')
+    assert.equal((await server.client.updateTask('s1', 't1', { input: 'updated' })).input, 'updated')
+    await server.client.deleteTask('s1', 't1')
+    assert.equal((await server.client.getGrader('g1')).name, 'quality')
+    await server.client.deleteGraderParent('gp1')
+    await server.client.deleteRun('r1')
+    assert.equal((await server.client.updateTrial('tr1', { status: 'failed' })).status, 'failed')
+    await server.client.deleteTrial('tr1')
+    assert.equal(server.requests[0].url, '/api/v1/suites/s1')
+    assert.equal(server.requests[2].method, 'DELETE')
+  } finally {
+    await server.close()
+  }
+})
+
 test('createSuiteVersion copies a suite version through the version endpoint', async () => {
   const server = await startServer({
     'POST /api/v1/suites/s2/versions': {

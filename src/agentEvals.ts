@@ -488,6 +488,25 @@ export class AgentEvalsClient {
     return this.request('POST', `/suites/${enc(suiteId)}/versions`)
   }
 
+  getSuite(suiteId: string): Promise<AgentEvalsSuite> {
+    return this.request('GET', `/suites/${enc(suiteId)}`)
+  }
+
+  updateSuite(
+    suiteId: string,
+    input: { name?: string; description?: string; tags?: readonly string[]; default_fixture_id?: string | null },
+  ): Promise<AgentEvalsSuite> {
+    return this.request('PATCH', `/suites/${enc(suiteId)}`, { json: input })
+  }
+
+  async deleteSuite(suiteId: string): Promise<void> {
+    await this.request('DELETE', `/suites/${enc(suiteId)}`)
+  }
+
+  async deleteSuiteParent(suiteParentId: string): Promise<void> {
+    await this.request('DELETE', `/suite_parents/${enc(suiteParentId)}`)
+  }
+
   // ── Tasks ─────────────────────────────────────────────────────────────────
 
   listTasks(suiteId: string): Promise<AgentEvalsTask[]> {
@@ -496,6 +515,18 @@ export class AgentEvalsClient {
 
   upsertTask(suiteId: string, input: UpsertTaskInput): Promise<AgentEvalsTask> {
     return this.request('POST', `/suites/${enc(suiteId)}/tasks`, { json: input })
+  }
+
+  getTask(suiteId: string, taskId: string): Promise<AgentEvalsTask> {
+    return this.request('GET', `/suites/${enc(suiteId)}/tasks/${enc(taskId)}`)
+  }
+
+  updateTask(suiteId: string, taskId: string, input: Partial<UpsertTaskInput>): Promise<AgentEvalsTask> {
+    return this.request('PATCH', `/suites/${enc(suiteId)}/tasks/${enc(taskId)}`, { json: input })
+  }
+
+  async deleteTask(suiteId: string, taskId: string): Promise<void> {
+    await this.request('DELETE', `/suites/${enc(suiteId)}/tasks/${enc(taskId)}`)
   }
 
   // ── Fixtures ──────────────────────────────────────────────────────────────
@@ -536,6 +567,10 @@ export class AgentEvalsClient {
 
   async deleteFixture(fixtureVersionId: string): Promise<void> {
     await this.request('DELETE', `/fixtures/${enc(fixtureVersionId)}`)
+  }
+
+  async deleteFixtureParent(fixtureParentId: string): Promise<void> {
+    await this.request('DELETE', `/fixture_parents/${enc(fixtureParentId)}`)
   }
 
   /**
@@ -590,6 +625,25 @@ export class AgentEvalsClient {
     return this.request('POST', `/grader_definitions/${enc(graderVersionId)}/versions`)
   }
 
+  getGrader(graderVersionId: string): Promise<AgentEvalsGraderVersion> {
+    return this.request('GET', `/grader_definitions/${enc(graderVersionId)}`)
+  }
+
+  updateGrader(
+    graderVersionId: string,
+    input: Partial<FindOrCreateGraderDefinitionInput>,
+  ): Promise<AgentEvalsGraderVersion> {
+    return this.request('PATCH', `/grader_definitions/${enc(graderVersionId)}`, { json: input })
+  }
+
+  async deleteGrader(graderVersionId: string): Promise<void> {
+    await this.request('DELETE', `/grader_definitions/${enc(graderVersionId)}`)
+  }
+
+  async deleteGraderParent(graderParentId: string): Promise<void> {
+    await this.request('DELETE', `/grader_parents/${enc(graderParentId)}`)
+  }
+
   // ── Runs ────────────────────────────────────────────────────────────────
 
   listRuns(projectId: string, options: { branch?: string } = {}): Promise<AgentEvalsRun[]> {
@@ -604,8 +658,23 @@ export class AgentEvalsClient {
     return this.request('GET', `/runs/${enc(runId)}`)
   }
 
-  updateRun(runId: string, input: { status?: AgentEvalsClientRunStatus; metadata?: Record<string, unknown> }): Promise<AgentEvalsRun> {
+  updateRun(
+    runId: string,
+    input: {
+      status?: AgentEvalsClientRunStatus
+      metadata?: Record<string, unknown>
+      name?: string
+      git_branch?: string
+      git_sha?: string
+      git_repo_url?: string
+      model?: string
+    },
+  ): Promise<AgentEvalsRun> {
     return this.request('PATCH', `/runs/${enc(runId)}`, { json: input })
+  }
+
+  async deleteRun(runId: string): Promise<void> {
+    await this.request('DELETE', `/runs/${enc(runId)}`)
   }
 
   // ── Trials ──────────────────────────────────────────────────────────────
@@ -616,6 +685,14 @@ export class AgentEvalsClient {
 
   getTrial(trialId: string): Promise<AgentEvalsTrial> {
     return this.request('GET', `/trials/${enc(trialId)}`)
+  }
+
+  updateTrial(trialId: string, input: Partial<ReportTrialInput>): Promise<AgentEvalsTrial> {
+    return this.request('PATCH', `/trials/${enc(trialId)}`, { json: input })
+  }
+
+  async deleteTrial(trialId: string): Promise<void> {
+    await this.request('DELETE', `/trials/${enc(trialId)}`)
   }
 
   /**
