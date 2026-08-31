@@ -1,4 +1,4 @@
-name: Test
+name: Build and test
 
 on:
   pull_request:
@@ -10,24 +10,19 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  build-and-test:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        # Node 24 only: the `eve` dev dependency declares `engines.node >= 24`,
-        # so older versions cannot install the dev toolchain. This constrains
-        # development, not consumers — the published package itself has no such
-        # requirement unless you use the optional Eve adapter.
-        node-version:
-          - "24"
 
     steps:
       - uses: actions/checkout@v5
 
+      # Node 24 only: the `eve` dev dependency declares `engines.node >= 24`,
+      # so older versions cannot install the dev toolchain. This constrains
+      # development, not consumers — the published package itself has no such
+      # requirement unless you use the optional Eve adapter.
       - uses: actions/setup-node@v5
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: "24"
           cache: yarn
 
       - name: Install dependencies
