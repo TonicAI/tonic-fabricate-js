@@ -7,6 +7,9 @@ export {
 export { createFabricateEveInstrumentation } from './instrumentation.js'
 export {
   createFabricateEveEvals,
+  createFabricateEveEvalsForAllSuites,
+  listLatestFabricateEveSuites,
+  loadAllFabricateEveSuites,
   loadFabricateEveSuite,
 } from './evals.js'
 export {
@@ -21,6 +24,7 @@ export type {
 } from './traceStore.js'
 export type { FabricateEveInstrumentationOptions } from './instrumentation.js'
 export type {
+  CreateFabricateEveEvalsForAllSuitesOptions,
   CreateFabricateEveEvalsOptions,
   FabricateEveSuite,
   FabricateEveSuiteSelector,
