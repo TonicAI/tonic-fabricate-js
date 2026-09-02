@@ -81,6 +81,12 @@ export interface FabricateEveReporterOptions extends EveTraceStoreOptions {
   ) =>
     | readonly FabricateEveAttachment[]
     | Promise<readonly FabricateEveAttachment[]>
+  /**
+   * Optionally add client-known OpenInference attributes on each span before
+   * the trial is reported. Use this for llm.cost.* when the agent process
+   * did not already attach prices.
+   */
+  enrichSpanAttributes?: (attributes: Record<string, unknown>) => void
   logger?: FabricateEveReporterLogger
 }
 
@@ -106,9 +112,13 @@ export class FabricateEveReporter {
   private readonly options: FabricateEveReporterOptions
   private readonly store: EveSessionTraceStore
   private readonly logger: FabricateEveReporterLogger
-  private run?: AgentEvalsRun
+  private readonly runs = new Map<string, AgentEvalsRun>()
   private readonly tasks = new Map<string, FabricateTaskMetadata>()
-  private readonly pendingGrades: { taskKey: string; trialId: string }[] = []
+  private readonly pendingGrades: {
+    suiteId: string
+    taskKey: string
+    trialId: string
+  }[] = []
   private readonly reportingErrors: string[] = []
   private readonly failedGrades: string[] = []
 
@@ -122,6 +132,7 @@ export class FabricateEveReporter {
     evaluations: readonly FabricateEveEvaluation[],
     target: FabricateEveTarget,
   ): Promise<void> {
+    this.runs.clear()
     this.tasks.clear()
     this.pendingGrades.length = 0
     this.reportingErrors.length = 0
@@ -134,38 +145,47 @@ export class FabricateEveReporter {
     const suiteIds = new Set(
       [...this.tasks.values()].map((task) => task.suiteId),
     )
-    if (suiteIds.size !== 1) {
-      throw new Error(
-        `Fabricate Eve reporter expected one suite, received ${suiteIds.size}.`,
-      )
-    }
+    if (suiteIds.size === 0) return
 
     const configuredRun =
       typeof this.options.run === 'function'
         ? await this.options.run(target)
         : this.options.run ?? {}
 
-    this.run = await this.options.client.createRun(this.options.projectId, {
-      ...configuredRun,
-      suite_id: [...suiteIds][0],
-      name:
-        configuredRun.name ??
-        `Eve native eval — ${new Date().toISOString()}`,
-      status: 'in_progress',
-      metadata: {
-        runner: 'eve eval',
-        eve_target: target.url,
-        eve_target_kind: target.kind,
-        ...configuredRun.metadata,
-      },
-    })
-    this.logger.log(`Fabricate run: ${this.run.id}`)
+    const startedAt = new Date().toISOString()
+    for (const suiteId of suiteIds) {
+      const run = await this.options.client.createRun(this.options.projectId, {
+        ...configuredRun,
+        suite_id: suiteId,
+        name:
+          configuredRun.name ??
+          (suiteIds.size === 1
+            ? `Eve native eval — ${startedAt}`
+            : `Eve native eval — ${startedAt} (${suiteId})`),
+        status: 'in_progress',
+        metadata: {
+          runner: 'eve eval',
+          eve_target: target.url,
+          eve_target_kind: target.kind,
+          ...configuredRun.metadata,
+        },
+      })
+      this.runs.set(suiteId, run)
+      this.logger.log(`Fabricate run (${suiteId}): ${run.id}`)
+    }
   }
 
   async onEvalComplete(result: FabricateEveEvalResult): Promise<void> {
-    if (!this.run || result.verdict === 'skipped') return
+    if (this.runs.size === 0 || result.verdict === 'skipped') return
     const task = this.tasks.get(result.id)
     if (!task) return
+    const run = this.runs.get(task.suiteId)
+    if (!run) {
+      this.reportingErrors.push(
+        `${task.key}: No Fabricate run was created for suite ${task.suiteId}.`,
+      )
+      return
+    }
 
     try {
       const executionFailed =
@@ -176,6 +196,11 @@ export class FabricateEveReporter {
         'The Eve agent turn failed before Fabricate semantic grading.'
       const sessionId = result.result.sessionId
       const transcript = sessionId ? this.store.readSession(sessionId) : []
+      if (this.options.enrichSpanAttributes) {
+        for (const span of transcript) {
+          this.options.enrichSpanAttributes(span.attributes)
+        }
+      }
 
       if (transcript.length === 0) {
         if (!executionFailed) {
@@ -193,7 +218,7 @@ export class FabricateEveReporter {
       }
 
       const attachmentUploadIds = await this.uploadAttachments(result)
-      const trial = await this.options.client.reportTrial(this.run.id, {
+      const trial = await this.options.client.reportTrial(run.id, {
         task_key: task.key,
         status: executionFailed ? 'error' : 'completed',
         latency_ms: evalLatencyMs(result),
@@ -225,7 +250,11 @@ export class FabricateEveReporter {
         return
       }
 
-      this.pendingGrades.push({ taskKey: task.key, trialId: trial.id })
+      this.pendingGrades.push({
+        suiteId: task.suiteId,
+        taskKey: task.key,
+        trialId: trial.id,
+      })
       this.logger.log(`Fabricate grade ${task.key}: pending`)
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
@@ -239,10 +268,11 @@ export class FabricateEveReporter {
   }
 
   async onRunComplete(_summary: unknown): Promise<void> {
-    if (!this.run) return
+    if (this.runs.size === 0) return
 
     const grading = await Promise.allSettled(
-      this.pendingGrades.map(async ({ taskKey, trialId }) => ({
+      this.pendingGrades.map(async ({ suiteId, taskKey, trialId }) => ({
+        suiteId,
         taskKey,
         trial: await this.options.client.waitForGrading(trialId, {
           intervalMs: this.options.gradePollIntervalMs ?? 3000,
@@ -252,7 +282,7 @@ export class FabricateEveReporter {
     )
 
     grading.forEach((outcome, index) => {
-      const taskKey = this.pendingGrades[index].taskKey
+      const { taskKey } = this.pendingGrades[index]
       if (outcome.status === 'rejected') {
         const message =
           outcome.reason instanceof Error
@@ -286,9 +316,12 @@ export class FabricateEveReporter {
       )
     })
 
-    await this.options.client.updateRun(this.run.id, {
-      status: this.reportingErrors.length > 0 ? 'failed' : 'completed',
-    })
+    const runStatus = this.reportingErrors.length > 0 ? 'failed' : 'completed'
+    await Promise.all(
+      [...this.runs.values()].map((run) =>
+        this.options.client.updateRun(run.id, { status: runStatus }),
+      ),
+    )
 
     if (this.reportingErrors.length > 0 || this.failedGrades.length > 0) {
       const failures = [
