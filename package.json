@@ -1,11 +1,20 @@
 {
   "name": "@fabricate-tools/client",
-  "version": "1.4.0",
+  "version": "0.0.0-dev",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "description": "The official Fabricate client",
   "license": "MIT",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TonicAI/tonic-fabricate-js.git"
+  },
+  "homepage": "https://github.com/TonicAI/tonic-fabricate-js#readme",
+  "bugs": "https://github.com/TonicAI/tonic-fabricate-js/issues",
+  "engines": {
+    "node": ">=20"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -23,9 +32,7 @@
     "build": "tsc",
     "clean": "rm -rf dist",
     "test": "node --test --import tsx test/*.test.ts",
-    "prepublishOnly": "npm run build",
-    "publish-to-npm": "npm publish --access public",
-    "release": "npm run clean && npm run build && npm run publish-to-npm",
+    "prepublishOnly": "node -e \"if (!process.env.CI) throw new Error('Publish by pushing a v* tag; the version comes from the tag')\" && npm run build",
     "test:rules:download": "npm run build && node examples/rules/download.js",
     "test:agent:download": "npm run build && tsx examples/agent/download.ts",
     "test:agent:workflow": "npm run build && tsx examples/agent/workflow.ts",

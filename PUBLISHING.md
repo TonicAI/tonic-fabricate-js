@@ -1,81 +1,28 @@
 # Publishing @fabricate-tools/client
 
-## Prerequisites
+Publishing happens in CI, triggered by pushing a tag. The tag is the source of
+truth for the version — `package.json` holds a `0.0.0-dev` placeholder and is
+never bumped.
 
-1. You must be logged into npm with an account that has publish access to `@fabricate-tools/client`:
+## Releasing
+
+1. Merge the changes you want to ship.
+2. Tag `main` and push the tag:
    ```bash
-   npm login
+   git checkout main && git pull
+   git tag v1.5.0
+   git push origin v1.5.0
+   ```
+   `patch` for fixes, `minor` for backwards-compatible additions, `major` for
+   breaking changes.
+3. Confirm it landed:
+   ```bash
+   npm view @fabricate-tools/client version
    ```
 
-2. Ensure you have the latest dependencies installed:
-   ```bash
-   yarn install
-   ```
+The tag push builds, tests, publishes to npm, and creates a GitHub Release with
+notes generated from the merged pull requests. Tags that are not on `main` are
+rejected.
 
-## Publishing Steps
-
-### 1. Update the version
-
-Update the `version` field in `package.json` following [semver](https://semver.org/):
-- **Patch** (1.3.1 → 1.3.2): Bug fixes, no API changes
-- **Minor** (1.3.1 → 1.4.0): New features, backwards compatible
-- **Major** (1.3.1 → 2.0.0): Breaking changes
-
-### 2. Test the build
-
-```bash
-yarn build
-```
-
-Verify the `dist/` folder contains the compiled JavaScript and TypeScript declaration files.
-
-### 3. Test locally (optional)
-
-Run the example scripts to verify everything works:
-```bash
-yarn test:agent:download
-yarn test:agent:workflow
-```
-
-### 4. Publish
-
-Run the release script:
-```bash
-yarn release
-```
-
-This will:
-1. Clean the `dist/` folder
-2. Compile TypeScript to JavaScript
-3. Publish to npm with public access
-
-### 5. Verify
-
-Check that the package was published:
-```bash
-npm view @fabricate-tools/client
-```
-
-## Manual Publishing
-
-If you need to publish manually:
-
-```bash
-# Clean and build
-yarn clean
-yarn build
-
-# Publish
-npm publish --access public
-```
-
-## Troubleshooting
-
-### "You must be logged in to publish packages"
-Run `npm login` and authenticate with your npm account.
-
-### "You do not have permission to publish"
-Contact an npm org admin to be added to the `@fabricate-tools` organization.
-
-### "Cannot publish over previously published version"
-Update the version number in `package.json` - you cannot republish the same version.
+A version already on npm cannot be republished, and publishing cannot be
+meaningfully undone. To fix a bad build, release a new patch version.
