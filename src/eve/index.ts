@@ -4,7 +4,10 @@ export {
   EveSessionFileSpanExporter,
   EveSessionTraceStore,
 } from './traceStore.js'
-export { createFabricateEveInstrumentation } from './instrumentation.js'
+export {
+  createFabricateEveInstrumentation,
+  fabricateEveSpanProcessors,
+} from './instrumentation.js'
 export {
   createFabricateEveEvals,
   createFabricateEveEvalsForAllSuites,

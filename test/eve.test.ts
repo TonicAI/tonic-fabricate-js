@@ -9,11 +9,37 @@ import {
   createFabricateEveEvalsForAllSuites,
   FabricateEveReporter,
   EveSessionTraceStore,
+  fabricateEveSpanProcessors,
 } from '../src/eve/index.js'
+import type { SpanProcessor } from '@opentelemetry/sdk-trace-base'
 
 function temporaryDirectory(): string {
   return mkdtempSync(join(tmpdir(), 'fabricate-eve-test-'))
 }
+
+function stubSpanProcessor(): SpanProcessor {
+  return {
+    onStart() {},
+    onEnd() {},
+    async shutdown() {},
+    async forceFlush() {},
+  }
+}
+
+test('fabricateEveSpanProcessors keeps the Fabricate exporter first', () => {
+  const extra = stubSpanProcessor()
+  const processors = fabricateEveSpanProcessors({
+    additionalSpanProcessors: [extra],
+  })
+
+  assert.equal(processors.length, 2)
+  assert.equal(processors[1], extra)
+})
+
+test('fabricateEveSpanProcessors omits extras when none are provided', () => {
+  const processors = fabricateEveSpanProcessors()
+  assert.equal(processors.length, 1)
+})
 
 test('EveSessionTraceStore reads and clears spans by session', () => {
   const directory = temporaryDirectory()

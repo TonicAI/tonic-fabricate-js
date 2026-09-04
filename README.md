@@ -255,6 +255,9 @@ export default createFabricateEveInstrumentation({
   enrichAttributes(attributes) {
     return attributes
   },
+  // Optional: extra processors on the same tracer provider (for example
+  // Braintrust) without replacing Fabricate eval trace persistence.
+  // additionalSpanProcessors: [],
 })
 ```
 
