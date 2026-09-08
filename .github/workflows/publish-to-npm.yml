@@ -1,14 +1,9 @@
 name: Publish to npm
 
 on:
-  release:
-    types: [published]
-  workflow_dispatch:
-    inputs:
-      confirm_publish:
-        description: 'Type "PUBLISH" to confirm publishing to npm'
-        required: true
-        default: ""
+  push:
+    tags:
+      - "v*"
 
 permissions:
   contents: read
@@ -16,31 +11,35 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    environment: production
 
     permissions:
-      contents: read
-      # Required to mint the short-lived OIDC token that npm trusted
-      # publishing exchanges for publish rights. No long-lived npm token is
-      # stored in this repository.
+      # Creating the GitHub Release for the tag.
+      contents: write
+      # Mints the short-lived OIDC token that npm trusted publishing exchanges
+      # for publish rights. No npm token is stored in this repository.
       id-token: write
 
     steps:
-      - name: Verify confirmation (manual dispatch only)
-        if: github.event_name == 'workflow_dispatch'
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      # Tags are not restricted to main, so without this a tag on an unmerged
+      # branch would publish code that never passed review.
+      - name: Verify the tag is on main
         run: |
-          if [ "${{ github.event.inputs.confirm_publish }}" != "PUBLISH" ]; then
-            echo "Confirmation not received. You must type 'PUBLISH' to confirm."
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" FETCH_HEAD; then
+            echo "$GITHUB_REF_NAME is not on main. Refusing to publish."
             exit 1
           fi
 
-      - uses: actions/checkout@v5
-
+      # Deliberately no dependency cache: npm advises against caching in
+      # release builds, and this job runs a handful of times a year.
       - uses: actions/setup-node@v5
         with:
           node-version: "24"
           registry-url: https://registry.npmjs.org
-          cache: yarn
 
       # Trusted publishing requires npm 11.5.1 or newer.
       - name: Update npm
@@ -55,17 +54,15 @@ jobs:
       - name: Run tests
         run: yarn test
 
-      # A release tag that disagrees with package.json silently publishes the
-      # wrong version, which cannot be undone once it is on the registry.
-      - name: Verify version matches the release tag
-        if: github.event_name == 'release'
-        run: |
-          pkg="v$(node -p "require('./package.json').version")"
-          tag="${{ github.event.release.tag_name }}"
-          if [ "$pkg" != "$tag" ]; then
-            echo "package.json is $pkg but the release tag is $tag"
-            exit 1
-          fi
+      # The tag is the source of truth for the version; package.json carries a
+      # placeholder. This edit lives and dies with the runner.
+      - name: Set the version from the tag
+        run: npm pkg set version="${GITHUB_REF_NAME#v}"
 
       - name: Publish
         run: npm publish --access public
+
+      - name: Create the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --generate-notes --verify-tag
