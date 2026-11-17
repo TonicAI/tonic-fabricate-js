@@ -1,6 +1,6 @@
 # Fabricate Client
 
-The official [Fabricate](https://www.tonic.ai/products/fabricate) client for JavaScript and TypeScript.
+[Tonic Fabricate](https://www.tonic.ai/products/fabricate) generates synthetic data from a plain-language description, with relationships between tables intact. This package is the official Fabricate client for JavaScript and TypeScript. To use it, [sign up at fabricate.tonic.ai](https://fabricate.tonic.ai/?utm_source=npm&utm_medium=devrel&utm_campaign=client-readme) with a work email address, then [create an API key](https://docs.tonic.ai/fabricate/fabricate-api/managing-fabricate-api-keys).
 
 - **Generate and download data** from a Fabricate database
 - **Run workflows** and collect their results and files

@@ -3,7 +3,19 @@
   "version": "0.0.0-dev",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "description": "The official Fabricate client",
+  "description": "Official JavaScript and TypeScript client for Tonic Fabricate. Generate synthetic data and run workflows from code.",
+  "keywords": [
+    "fabricate",
+    "tonic",
+    "tonic-fabricate",
+    "synthetic-data",
+    "synthetic-data-generation",
+    "test-data",
+    "test-data-generation",
+    "data-generation",
+    "api-client",
+    "typescript"
+  ],
   "license": "MIT",
   "type": "module",
   "repository": {
