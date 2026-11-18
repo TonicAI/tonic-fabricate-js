@@ -43,10 +43,11 @@ jobs:
 
       # Trusted publishing requires npm 11.5.1 or newer.
       - name: Update npm
-        run: npm install -g npm@latest
+        run: npm install -g npm@^11.5.1
 
+      # No install scripts: this job holds the publish rights.
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        run: yarn install --frozen-lockfile --ignore-scripts
 
       - name: Build
         run: yarn build
@@ -62,7 +63,13 @@ jobs:
       - name: Publish
         run: npm publish --access public
 
-      - name: Create the GitHub Release
+      # Skip if the release exists: creating one in the UI also pushes the tag.
+      - name: Create the GitHub Release unless it exists
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" --generate-notes --verify-tag
+        run: |
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            echo "Release $GITHUB_REF_NAME already exists. Skipping."
+          else
+            gh release create "$GITHUB_REF_NAME" --generate-notes --verify-tag
+          fi
